@@ -42,39 +42,42 @@ public class TokenTypeProcessFilter extends TokenFilter {
     
     @Override
     public boolean incrementToken() throws IOException {
-        if (delegate == Delegate.DELEGATE) {
-            delegate = Delegate.DELEGATED;
-            return true;
-        } else if (delegate == Delegate.DELEGATED) {
-            delegate = Delegate.SELF;
-            return true;
-        } else if (input.incrementToken()) {
-            String type = typeAtt.type();
-            if ((includeInput == null || includeInput.contains(type)) && (excludeInput == null || !excludeInput.contains(type))) {
-                if (!preserveOriginalType) {
-                    typeAtt.setType(inputTypeRename);
-                }
-                delegate = Delegate.DELEGATE;
-                int inc = posIncrAtt.getPositionIncrement();
-                if (outputFilter.incrementToken()) {
-                    State outputState = captureState();
-                    boolean multipleTokens = false;
-                    while (outputFilter.incrementToken() && delegate == Delegate.DELEGATED) {
-                        // TODO this results in double-processing of input; try another way?
-                        multipleTokens = true;
-                        outputState = captureState();
+        switch (delegate) {
+            case DELEGATE:
+                delegate = Delegate.DELEGATED;
+                return true;
+            case DELEGATED:
+                delegate = Delegate.SELF;
+                return true;
+            default:
+                if (input.incrementToken()) {
+                    String type = typeAtt.type();
+                    if ((includeInput == null || includeInput.contains(type)) && (excludeInput == null || !excludeInput.contains(type))) {
+                        if (!preserveOriginalType) {
+                            typeAtt.setType(inputTypeRename);
+                        }
+                        delegate = Delegate.DELEGATE;
+                        int inc = posIncrAtt.getPositionIncrement();
+                        if (outputFilter.incrementToken()) {
+                            State outputState = captureState();
+                            boolean multipleTokens = false;
+                            while (outputFilter.incrementToken() && delegate == Delegate.DELEGATED) {
+                                // TODO this results in double-processing of input; try another way?
+                                multipleTokens = true;
+                                outputState = captureState();
+                            }
+                            restoreState(outputState);
+                            posIncrAtt.setPositionIncrement(inc); // Ensure position increment remains the same.
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        return true;
                     }
-                    restoreState(outputState);
-                    posIncrAtt.setPositionIncrement(inc); // Ensure position increment remains the same.
-                    return true;
                 } else {
                     return false;
                 }
-            } else {
-                return true;
-            }
-        } else {
-            return false;
         }
     }
     private boolean ending = false;
