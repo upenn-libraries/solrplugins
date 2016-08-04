@@ -21,11 +21,11 @@ import org.apache.lucene.analysis.util.TokenFilterFactory;
  */
 public class TokenTypeProcessFilterFactory extends TokenFilterFactory implements ResourceLoaderAware {
 
-    private static final String DELEGATE_FILTER_FACTORY_ARGNAME = "delegateFilterFactory";
-    private static final String INCLUDE_INPUT_TYPES_ARGNAME = "includeInputTypes";
-    private static final String EXCLUDE_INPUT_TYPES_ARGNAME = "excludeInputTypes";
+    private static final String DELEGATE_FILTER_FACTORY_ARGNAME = "_class";
+    private static final String INCLUDE_INPUT_TYPES_ARGNAME = "includeTypes";
+    private static final String EXCLUDE_INPUT_TYPES_ARGNAME = "excludeTypes";
     private static final String INPUT_TYPE_RENAME_ARGNAME = "inputTypeRename";
-    private static final String SUBARG_PREFIX = "arg_";
+    private static final char SUBARG_PREFIX = '_';
     
     private final String delegateFilterFactoryName;
     private TokenFilterFactory delegateFilterFactory;
@@ -39,15 +39,15 @@ public class TokenTypeProcessFilterFactory extends TokenFilterFactory implements
         if (args.containsKey(DELEGATE_FILTER_FACTORY_ARGNAME)) {
             delegateFilterFactoryName = args.get(DELEGATE_FILTER_FACTORY_ARGNAME);
         } else {
-            throw new IllegalArgumentException("must specify "+DELEGATE_FILTER_FACTORY_ARGNAME);
+            throw new IllegalArgumentException("must specify \""+DELEGATE_FILTER_FACTORY_ARGNAME + "\" arg");
         }
         inputTypeRename = args.get(INPUT_TYPE_RENAME_ARGNAME);
         includeInput = parseTypeNames(args.get(INCLUDE_INPUT_TYPES_ARGNAME));
         excludeInput = parseTypeNames(args.get(EXCLUDE_INPUT_TYPES_ARGNAME));
         HashMap<String, String> sub = new HashMap<String, String>();
         for (Entry<String, String> e : args.entrySet()) {
-            if (e.getKey().startsWith(SUBARG_PREFIX)) {
-                sub.put(e.getKey().substring(SUBARG_PREFIX.length()), e.getValue());
+            if (e.getKey().charAt(0) == SUBARG_PREFIX) {
+                sub.put(e.getKey().substring(1), e.getValue());
             }
         }
         subargs = sub;
@@ -81,6 +81,7 @@ public class TokenTypeProcessFilterFactory extends TokenFilterFactory implements
         }
     }
 
+    @Override
     public void inform(ResourceLoader loader) throws IOException {
         if (delegateFilterFactoryName == null) {
             delegateFilterFactory = null;
