@@ -5,6 +5,7 @@ import java.util.Map;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.core.SolrResourceLoader;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.TextField;
@@ -49,7 +50,15 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public String indexedToReadable(String indexedForm) {
+  public void updateRepresentation(NamedList<Object> nl) {
+    for (int i = 0; i < nl.size(); i++) {
+      String rawName = nl.getName(i);
+      String externalName = readableToExternal(rawName);
+      nl.setName(i, externalName);
+    }
+  }
+
+  public String readableToExternal(String indexedForm) {
     int startIndex = indexedForm.indexOf(delim) + hierarchyLevel + 1;
     if (startIndex <= hierarchyLevel) {
       return indexedForm;
@@ -97,21 +106,6 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
       }
     }
     return -1;
-  }
-
-  @Override
-  public CharsRef indexedToReadable(BytesRef input, CharsRefBuilder output) {
-    int startOffset = delimOffset(input) + hierarchyLevel + 1;
-    if (startOffset <= hierarchyLevel) {
-      return super.indexedToReadable(input, output);
-    } else {
-      int endOffset = delimOffset(input, startOffset);
-      if (endOffset < 0) {
-        return super.indexedToReadable(new BytesRef(input.bytes, startOffset, input.offset + input.length - startOffset), output);
-      } else {
-        return super.indexedToReadable(new BytesRef(input.bytes, startOffset, endOffset - startOffset), output);
-      }
-    }
   }
 
   @Override
