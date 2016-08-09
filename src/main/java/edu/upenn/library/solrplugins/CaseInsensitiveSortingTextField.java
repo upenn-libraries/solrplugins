@@ -7,6 +7,7 @@ import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.core.SolrResourceLoader;
+import org.apache.solr.request.MultiSerializable;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.TextField;
 
@@ -50,7 +51,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public void updateRepresentation(NamedList<Object> nl) {
+  public void updateExternalRepresentation(NamedList<Object> nl) {
     for (int i = 0; i < nl.size(); i++) {
       String rawName = nl.getName(i);
       String externalName = readableToExternal(rawName);
