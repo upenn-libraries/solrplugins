@@ -1,4 +1,4 @@
-package edu.upenn.library.solrplugins;
+package org.apache.solr.request;
 
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
@@ -23,5 +23,5 @@ public interface MultiSerializable {
 
   String indexedToNormalized(String indexedForm);
 
-  void updateRepresentation(NamedList<Object> nl);
+  void updateExternalRepresentation(NamedList<Object> nl);
 }

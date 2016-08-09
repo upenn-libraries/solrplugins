@@ -44,9 +44,12 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.common.util.StrUtils;
+import org.apache.solr.request.MultiSerializable;
 import org.apache.solr.request.SimpleFacets;
 import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.schema.FieldType;
+import org.apache.solr.schema.IndexSchema;
+import org.apache.solr.schema.SchemaField;
 import org.apache.solr.search.QueryParsing;
 import org.apache.solr.search.SyntaxError;
 import org.apache.solr.search.facet.FacetDebugInfo;
@@ -72,6 +75,28 @@ public class FacetComponent extends SearchComponent {
 
   private static final String PIVOT_KEY = "facet_pivot";
   private static final String PIVOT_REFINE_PREFIX = "{!"+PivotFacet.REFINE_PARAM+"=";
+
+  public MultiSerializable extendedFieldType(String name, ResponseBuilder rb) {
+    IndexSchema sch;
+    SchemaField sf;
+    FieldType ft;
+    if ((sch = rb.req.getSchema()) != null && (sf = sch.getFieldOrNull(name)) != null
+        && (ft = sf.getType()) != null && ft instanceof MultiSerializable) {
+      return (MultiSerializable)ft;
+    } else {
+      return null;
+    }
+  }
+
+  private void updateExternalRepresentation(NamedList<Object> facet_fields, ResponseBuilder rb) {
+    for (Entry<String, Object> e : facet_fields) {
+      String fieldName = e.getKey();
+      MultiSerializable fieldType;
+      if ((fieldType = extendedFieldType(fieldName, rb)) != null) {
+        fieldType.updateExternalRepresentation((NamedList<Object>)e.getValue());
+      }
+    }
+  }
 
   @Override
   public void prepare(ResponseBuilder rb) throws IOException {
@@ -1160,6 +1185,7 @@ public class FacetComponent extends SearchComponent {
     }
 
     rb.rsp.add("facet_counts", facet_counts);
+    updateExternalRepresentation(facet_fields, rb);
 
     rb._facetInfo = null;  // could be big, so release asap
   }

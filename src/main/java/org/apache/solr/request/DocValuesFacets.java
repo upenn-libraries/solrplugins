@@ -205,6 +205,7 @@ public class DocValuesFacets {
           int c = (int)(pair >>> 32);
           int tnum = Integer.MAX_VALUE - (int)pair;
           final BytesRef term = si.lookupOrd(startTermIndex+tnum);
+          //TODO implement extension here
           ft.indexedToReadable(term, charsRef);
           res.add(charsRef.toString(), c);
         }
@@ -235,6 +236,7 @@ public class DocValuesFacets {
             term = si.lookupOrd(startTermIndex+i);
           }
           ft.indexedToReadable(term, charsRef);
+          // TODO implement extension here
           res.add(charsRef.toString(), c);
         }
       }
