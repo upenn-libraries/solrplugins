@@ -18,11 +18,9 @@ ref="${latest_tag##*refs/tags/}"
 
 while read file; do
   mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
-  curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/solr/core/src/java/$file" > "$BASE_DIR/src/main/java/${file%/*}/X${file##*/}"
+  curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/solr/core/src/java/$file" > "$BASE_DIR/src/main/java/$file"
 done << EOF
 org/apache/solr/handler/component/FacetComponent.java
-org/apache/solr/request/DocValuesFacets.java
-org/apache/solr/request/SimpleFacets.java
 EOF
 
 git add .
