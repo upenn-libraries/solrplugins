@@ -20,12 +20,15 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.lucene.index.DocValues;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiDocValues.MultiSortedDocValues;
 import org.apache.lucene.index.MultiDocValues.MultiSortedSetDocValues;
 import org.apache.lucene.index.MultiDocValues.OrdinalMap;
+import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSet;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
@@ -205,9 +208,9 @@ public class DocValuesFacets {
           int c = (int)(pair >>> 32);
           int tnum = Integer.MAX_VALUE - (int)pair;
           final BytesRef term = si.lookupOrd(startTermIndex+tnum);
-          //TODO implement extension here
-          ft.indexedToReadable(term, charsRef);
-          res.add(charsRef.toString(), c);
+          if (!(ft instanceof FacetPayload && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+            res.add(charsRef.toString(), c);
+          }
         }
       
       } else {
@@ -236,15 +239,22 @@ public class DocValuesFacets {
             term = si.lookupOrd(startTermIndex+i);
           }
           ft.indexedToReadable(term, charsRef);
-          // TODO implement extension here
-          res.add(charsRef.toString(), c);
+          if (!(ft instanceof FacetPayload && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+            res.add(charsRef.toString(), c);
+          }
         }
       }
     }
     
     return finalize(res, searcher, schemaField, docs, missingCount, missing);
   }
-  
+
+  private static <T extends FieldType & FacetPayload>  boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
+      CharsRefBuilder val,BytesRef term, NamedList<Integer> res, int count) throws IOException {
+    PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    return ft.addEntry(val.toString(), count, postings, res);
+  }
+
   /** finalizes result: computes missing count if applicable */
   static NamedList<Integer> finalize(NamedList<Integer> res, SolrIndexSearcher searcher, SchemaField schemaField, DocSet docs, int missingCount, boolean missing) throws IOException {
     if (missing) {

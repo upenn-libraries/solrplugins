@@ -44,6 +44,7 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.common.util.StrUtils;
+import org.apache.solr.request.FacetPayload;
 import org.apache.solr.request.MultiSerializable;
 import org.apache.solr.request.SimpleFacets;
 import org.apache.solr.request.SolrQueryRequest;
@@ -1141,7 +1142,8 @@ public class FacetComponent extends SearchComponent {
           if (counts[i].count < dff.minCount) {
             break;
           }
-          fieldCounts.add(counts[i].name, num(counts[i].count));
+          Object val = counts[i].val != null ? counts[i].val : num(counts[i].count);
+          fieldCounts.add(counts[i].name, val);
         }
       } else {
         int off = dff.offset;
@@ -1159,7 +1161,8 @@ public class FacetComponent extends SearchComponent {
             break;
           }
           lim--;
-          fieldCounts.add(counts[i].name, num(count));
+          Object val = counts[i].val != null ? counts[i].val : num(count);
+          fieldCounts.add(counts[i].name, val);
         }
       }
 
@@ -1453,12 +1456,14 @@ public class FacetComponent extends SearchComponent {
     public int overrequestCount;
     public boolean needRefinements;
     public ShardFacetCount[] countSorted;
+    public final FacetPayload fPayload;
     
     DistribFieldFacet(ResponseBuilder rb, String facetStr) {
       super(rb, facetStr);
       // sf = rb.req.getSchema().getField(field);
       missingMax = new long[rb.shards.length];
       counted = new FixedBitSet[rb.shards.length];
+      fPayload = ftype instanceof FacetPayload ? (FacetPayload) ftype : null;
     }
     
     protected void fillParams(ResponseBuilder rb, SolrParams params, String field) {
@@ -1482,7 +1487,16 @@ public class FacetComponent extends SearchComponent {
       long last = 0;
       for (int i = 0; i < sz; i++) {
         String name = shardCounts.getName(i);
-        long count = ((Number) shardCounts.getVal(i)).longValue();
+        long count;
+        NamedList<Object> val;
+        if (fPayload != null) {
+          val = (NamedList<Object>) shardCounts.getVal(i);
+          NamedList<Object> extVal = (NamedList<Object>) val;
+          count = ((Number) extVal.get("count")).longValue();
+        } else {
+          val = null;
+          count = ((Number) shardCounts.getVal(i)).longValue();
+        }
         if (name == null) {
           missingCount += count;
           numReceived--;
@@ -1493,7 +1507,12 @@ public class FacetComponent extends SearchComponent {
             sfc.name = name;
             sfc.indexed = ftype == null ? sfc.name : ftype.toInternal(sfc.name);
             sfc.termNum = termNum++;
+            if (fPayload != null) {
+              sfc.val = val;
+            }
             counts.put(name, sfc);
+          } else if (fPayload != null) {
+            sfc.val = fPayload.mergePayload(sfc.val, val);
           }
           sfc.count += count;
           terms.set(sfc.termNum);
@@ -1565,6 +1584,7 @@ public class FacetComponent extends SearchComponent {
     // the indexed form of the name... used for comparisons
     public String indexed; 
     public long count;
+    public NamedList<Object> val;
     public int termNum; // term number starting at 0 (used in bit arrays)
     
     @Override

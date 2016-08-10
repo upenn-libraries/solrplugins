@@ -1,12 +1,16 @@
 package edu.upenn.library.solrplugins;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
+import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.core.SolrResourceLoader;
+import org.apache.solr.request.FacetPayload;
 import org.apache.solr.request.MultiSerializable;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.TextField;
@@ -15,7 +19,7 @@ import org.apache.solr.schema.TextField;
  *
  * @author michael
  */
-public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable {
+public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload {
 
   private static final String SERIALIZER_ARGNAME = "serializer";
   private static final String DISPLAYIZER_ARGNAME = "displayizer";
@@ -147,6 +151,35 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   @Override
   public String readableToSerialized(String input) {
     return serializer == null ? input : serializer.transform(input);
+  }
+
+  @Override
+  public boolean addEntry(String value, int count, PostingsEnum postings, NamedList res) throws IOException {
+    NamedList<Object> entry = new NamedList<>();
+    entry.add("count", count);
+    res.add(value, entry);
+    int i = -1;
+    while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+      i++;
+      NamedList<Object> documentEntry = new NamedList<>();
+      entry.add("doc"+i, documentEntry);
+      for (int j = 0; j < postings.freq(); j++) {
+        postings.nextPosition();
+        String extra = postings.getPayload().utf8ToString();
+        documentEntry.add("position"+j, extra);
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public NamedList<Object> mergePayload(NamedList<Object> preExisting, NamedList<Object> add) {
+    long addCount = ((Number) add.remove("count")).longValue();
+    int countIndex = preExisting.indexOf("count", 0);
+    long preCount = ((Number) preExisting.getVal(countIndex)).longValue();
+    preExisting.setVal(countIndex, preCount + addCount);
+    preExisting.addAll(add);
+    return preExisting;
   }
 
 }
