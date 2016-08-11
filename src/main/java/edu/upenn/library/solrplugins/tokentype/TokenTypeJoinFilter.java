@@ -30,7 +30,7 @@ import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
  *
  * @author michael
  */
-public class TokenTypeJoinFilter extends TokenFilter {
+public final class TokenTypeJoinFilter extends TokenFilter {
 
   private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
   private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
