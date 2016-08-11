@@ -27,7 +27,7 @@ import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
  *
  * @author michael
  */
-public class TokenTypeSplitFilter extends TokenFilter {
+public final class TokenTypeSplitFilter extends TokenFilter {
 
   private final String inputTypeRename;
   private final String outputType;
