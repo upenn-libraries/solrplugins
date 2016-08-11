@@ -13,7 +13,7 @@ This branch can then be merged (one-way) into the master branch,
 allowing a smooth path to keep modifications up-to-date with
 the base implementation from Solr. 
 
-## `⁠edu.upenn.library.solrpluginstokentype` package
+## `edu.upenn.library.solrplugins.tokentype` package
 
 The approach to normalized sorting of terms is accomplished by
 having the indexed value be the raw input, prepended by a 
