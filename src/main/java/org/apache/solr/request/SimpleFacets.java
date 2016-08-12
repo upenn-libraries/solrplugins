@@ -17,6 +17,7 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,6 +36,9 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -54,6 +58,7 @@ import org.apache.lucene.search.grouping.AbstractAllGroupHeadsCollector;
 import org.apache.lucene.search.grouping.term.TermAllGroupsCollector;
 import org.apache.lucene.search.grouping.term.TermGroupFacetCollector;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.lucene.util.StringHelper;
 import org.apache.solr.common.SolrException;
@@ -411,6 +416,19 @@ public class SimpleFacets {
     SchemaField sf = searcher.getSchema().getField(field);
     FieldType ft = sf.getType();
 
+    boolean extend = false; // default to false
+    if (ft instanceof FacetPayload) {
+      extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
+    }
+    String target = params.getFieldParam(field, FacetParams.FACET_TARGET);
+    String targetDoc = null;
+    BytesRef targetBr = null;
+    if (target != null) {
+      boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
+      targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
+      targetBr = ((MultiSerializable)ft).normalizeQueryTarget(target, targetStrict, field);
+    }
+
     // determine what type of faceting method to use
     final String methodStr = params.getFieldParam(field, FacetParams.FACET_METHOD);
     final FacetMethod requestedMethod;
@@ -523,7 +541,7 @@ public class SimpleFacets {
             }
           break;
         case FC:
-          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, ignoreCase, fdebug);
+          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug);
           break;
         default:
           throw new AssertionError();

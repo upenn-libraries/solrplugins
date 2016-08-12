@@ -16,6 +16,7 @@
  */
 package org.apache.solr.request;
 
+import java.io.IOException;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
@@ -40,4 +41,6 @@ public interface MultiSerializable {
   String indexedToNormalized(String indexedForm);
 
   void updateExternalRepresentation(NamedList<Object> nl);
+
+  BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException;
 }

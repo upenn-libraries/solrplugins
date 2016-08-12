@@ -16,11 +16,17 @@
 package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.solr.common.util.NamedList;
@@ -36,6 +42,10 @@ import org.apache.solr.schema.TextField;
  */
 public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload {
 
+  private static final String NORMALIZED_TOKEN_TYPE = "normalized";
+  private static final String RAW_TOKEN_TYPE = "raw";
+  private static final String INDEXED_TOKEN_TYPE = "indexed";
+
   private static final String SERIALIZER_ARGNAME = "serializer";
   private static final String DISPLAYIZER_ARGNAME = "displayizer";
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
@@ -44,6 +54,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
 
   private int hierarchyLevel = DEFAULT_HIERARCHY_LEVEL;
   private String delim;
+  private byte[] delimBytes;
   private TextTransformer serializer;
   private TextTransformer displayizer;
 
@@ -66,7 +77,26 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
       hierarchyLevel = loader.newInstance(args.remove(HIERARCHY_LEVEL_ARGNAME), Integer.class);
     }
     delim = initDelim(hierarchyLevel);
+    delimBytes = delim.getBytes(StandardCharsets.UTF_8);
     super.init(schema, args);
+  }
+
+  @Override
+  public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException {
+    TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, new StringReader(val));
+    ts.reset();
+    CharTermAttribute termAtt = ts.getAttribute(CharTermAttribute.class);
+    TypeAttribute typeAtt = ts.getAttribute(TypeAttribute.class);
+    String matchType = strict ? INDEXED_TOKEN_TYPE : NORMALIZED_TOKEN_TYPE;
+    while (ts.incrementToken()) {
+      if (matchType.equals(typeAtt.type())) {
+        BytesRefBuilder ret = new BytesRefBuilder();
+        ret.copyChars(termAtt.toString());
+        ret.append(delimBytes, 0, delimBytes.length);
+        return ret.get();
+      }
+    }
+    throw new IllegalStateException("no token of type " + matchType + " found for field " + fieldName + ", val=" + val);
   }
 
   @Override

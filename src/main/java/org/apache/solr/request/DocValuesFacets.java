@@ -61,7 +61,7 @@ import org.apache.solr.util.LongPriorityQueue;
 public class DocValuesFacets {
   private DocValuesFacets() {}
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean ignoreCase, FacetDebugInfo fdebug) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
     FieldType ft = schemaField.getType();
     NamedList<Integer> res = new NamedList<>();
@@ -223,6 +223,7 @@ public class DocValuesFacets {
           off=0;
         }
 
+        if (target == null) {
         for (; i<nTerms; i++) {          
           int c = counts[i];
           if (c<mincount) continue;
@@ -239,8 +240,37 @@ public class DocValuesFacets {
             term = si.lookupOrd(startTermIndex+i);
           }
           ft.indexedToReadable(term, charsRef);
-          if (!(ft instanceof FacetPayload && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+          if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
             res.add(charsRef.toString(), c);
+          }
+        }
+        } else {
+          long targetIdx = si.lookupTerm(target);
+          for (; i < nTerms; i++) {
+            int c = counts[i];
+            if (c < mincount) {
+              continue;
+            }
+            BytesRef term = null;
+            if (contains != null) {
+              term = si.lookupOrd(startTermIndex + i);
+              if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+                continue;
+              }
+            }
+            if (--off >= 0) {
+              continue;
+            }
+            if (--lim < 0) {
+              break;
+            }
+            if (term == null) {
+              term = si.lookupOrd(startTermIndex + i);
+            }
+            ft.indexedToReadable(term, charsRef);
+            if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+              res.add(charsRef.toString(), c);
+            }
           }
         }
       }

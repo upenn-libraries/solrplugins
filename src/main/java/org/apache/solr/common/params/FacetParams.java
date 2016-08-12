@@ -366,8 +366,7 @@ public interface FacetParams {
   /*
    DOCUMENT-CENTRIC OUTPUT
    */
-  public static final String FACET_OUTPUT_DOCS = FACET.concat(".outputDocs");
-  public static final String FACET_TARGET_DOC_ID = FACET.concat(".targetDocId");
+  public static final String FACET_TARGET_DOC = FACET.concat(".targetDoc"); // implies output docs
 
   /*
    EXTEND FACET OUTPUT WHERE POSSIBLE

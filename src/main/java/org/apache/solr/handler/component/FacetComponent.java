@@ -1394,6 +1394,10 @@ public class FacetComponent extends SearchComponent {
     public String sort;
     public boolean missing;
     public String prefix;
+    public String target;
+    public boolean targetStrict;
+    public String targetDoc;
+    public boolean extend;
     public long missingCount;
     
     public FieldFacet(ResponseBuilder rb, String facetStr) {
@@ -1426,6 +1430,10 @@ public class FacetComponent extends SearchComponent {
         this.sort = FacetParams.FACET_SORT_INDEX;
       }
       this.prefix = params.getFieldParam(field, FacetParams.FACET_PREFIX);
+      this.target = params.getFieldParam(field, FacetParams.FACET_TARGET);
+      this.targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT);
+      this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
+      this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND);
     }
   }
   
