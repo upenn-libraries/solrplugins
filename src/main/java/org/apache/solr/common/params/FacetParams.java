@@ -357,24 +357,12 @@ public interface FacetParams {
   public static final String FACET_HEATMAP_MAX_CELLS = FACET_HEATMAP + ".maxCells";
 
   /*
-   REPLACE "prefix" ARG WITH SEPARATE, EXPLICIT ARGS (below ... +/- drop-in replacement)
-   */
-  public static final String FACET_LOWER = FACET.concat(".lower");
-  public static final String FACET_LOWER_INCL = FACET_LOWER.concat(".incl");
-  public static final String FACET_UPPER = FACET.concat(".upper");
-  public static final String FACET_UPPER_INCL = FACET_UPPER.concat(".incl");
-
-  /*
    STRICTLY INDEX-CURSOR-ORIENTED
    */
   public static final String FACET_TARGET = FACET.concat(".target");
   // Offset that defines the response window with respect to target
   public static final String FACET_TARGET_INDEX = FACET_TARGET.concat(".offset");
-
-  /*
-   SUPPORT FOR NORMALIZATION OF TARGET TERM
-   */
-  // interpret input string literally, with no case-folding, etc.
+  // interpret target string literally, with no case-folding, etc.
   public static final String FACET_TARGET_STRICT = FACET_TARGET.concat(".strict");
 
   /*
