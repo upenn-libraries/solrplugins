@@ -360,8 +360,6 @@ public interface FacetParams {
    STRICTLY INDEX-CURSOR-ORIENTED
    */
   public static final String FACET_TARGET = FACET.concat(".target");
-  // Offset that defines the response window with respect to target
-  public static final String FACET_TARGET_INDEX = FACET_TARGET.concat(".offset");
   // interpret target string literally, with no case-folding, etc.
   public static final String FACET_TARGET_STRICT = FACET_TARGET.concat(".strict");
 
