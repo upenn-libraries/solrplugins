@@ -17,6 +17,7 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.Map.Entry;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.solr.common.util.NamedList;
 
@@ -25,6 +26,7 @@ import org.apache.solr.common.util.NamedList;
  * @author magibney
  */
 public interface FacetPayload {
-  boolean addEntry(String value, int count, PostingsEnum postings, NamedList res) throws IOException;
+  boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException;
+  Entry<String, Object> addEntry(String termKey, int count, PostingsEnum postings) throws IOException;
   NamedList<Object> mergePayload(NamedList<Object> preExisting, NamedList<Object> add);
 }

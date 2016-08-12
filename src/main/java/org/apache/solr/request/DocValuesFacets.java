@@ -17,7 +17,9 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReader;
@@ -208,7 +210,7 @@ public class DocValuesFacets {
           int c = (int)(pair >>> 32);
           int tnum = Integer.MAX_VALUE - (int)pair;
           final BytesRef term = si.lookupOrd(startTermIndex+tnum);
-          if (!(ft instanceof FacetPayload && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+          if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
             res.add(charsRef.toString(), c);
           }
         }
@@ -279,10 +281,25 @@ public class DocValuesFacets {
     return finalize(res, searcher, schemaField, docs, missingCount, missing);
   }
 
-  private static <T extends FieldType & FacetPayload>  boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
-      CharsRefBuilder val,BytesRef term, NamedList<Integer> res, int count) throws IOException {
+  private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
+      CharsRefBuilder val, BytesRef term, NamedList<Integer> res, int count) throws IOException {
     PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
     return ft.addEntry(val.toString(), count, postings, res);
+  }
+
+  private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
+      CharsRefBuilder val, BytesRef term, Deque<Entry<String, Object>> res, int count, boolean addFirst) throws IOException {
+    PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    Entry<String, Object> entry = ft.addEntry(val.toString(), count, postings);
+    if (entry == null) {
+      return false;
+    }
+    if (addFirst) {
+      res.addFirst(entry);
+    } else {
+      res.addLast(entry);
+    }
+    return true;
   }
 
   /** finalizes result: computes missing count if applicable */

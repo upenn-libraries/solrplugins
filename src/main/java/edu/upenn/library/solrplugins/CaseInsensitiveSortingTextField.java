@@ -18,8 +18,10 @@ package edu.upenn.library.solrplugins;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Map.Entry;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
@@ -199,11 +201,20 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public boolean addEntry(String value, int count, PostingsEnum postings, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
+    res.add(termKey, buildEntryValue(count, postings));
+    return true;
+  }
+
+  @Override
+  public Entry<String,Object> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings));
+  }
+
+  private NamedList<Object> buildEntryValue(int count, PostingsEnum postings) throws IOException {
     // proof-of-concept implementation
     NamedList<Object> entry = new NamedList<>();
     entry.add("count", count);
-    res.add(value, entry);
     int i = -1;
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
       i++;
@@ -215,7 +226,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
         documentEntry.add("position"+j, extra);
       }
     }
-    return true;
+    return entry;
   }
 
   @Override
