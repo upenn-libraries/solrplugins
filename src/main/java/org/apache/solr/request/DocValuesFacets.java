@@ -17,12 +17,12 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.lucene.index.DocValues;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiDocValues.MultiSortedDocValues;
 import org.apache.lucene.index.MultiDocValues.MultiSortedSetDocValues;
@@ -247,38 +247,85 @@ public class DocValuesFacets {
           }
         }
         } else {
-          long targetIdx = si.lookupTerm(target);
-          for (; i < nTerms; i++) {
-            int c = counts[i];
-            if (c < mincount) {
-              continue;
-            }
-            BytesRef term = null;
-            if (contains != null) {
-              term = si.lookupOrd(startTermIndex + i);
-              if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+          Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(limit, 1000));
+          final int targetIdx = (int)si.lookupTerm(target);
+          int actualOffset = offset;
+          if (offset > 0) {
+            i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1;
+            off = offset;
+            for (; i >= 0; i--) {
+              int c = counts[i];
+              if (c < mincount) {
                 continue;
               }
+              BytesRef term = null;
+              if (contains != null) {
+                term = si.lookupOrd(startTermIndex + i);
+                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+                  continue;
+                }
+              }
+              if (term == null) {
+                term = si.lookupOrd(startTermIndex + i);
+              }
+              ft.indexedToReadable(term, charsRef);
+              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
+                res.add(charsRef.toString(), c);
+              }
+              if (--off <= 0) {
+                break;
+              }
             }
-            if (--off >= 0) {
-              continue;
+            actualOffset = offset - off;
+          }
+          if (offset < limit) {
+            i = (targetIdx < 0 ? ~targetIdx : targetIdx);
+            if (offset < 0) {
+              off = -offset;
+              lim = limit;
+            } else {
+              off = 0;
+              lim = offset - limit;
             }
-            if (--lim < 0) {
-              break;
-            }
-            if (term == null) {
-              term = si.lookupOrd(startTermIndex + i);
-            }
-            ft.indexedToReadable(term, charsRef);
-            if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
-              res.add(charsRef.toString(), c);
+            for (; i < nTerms; i++) {
+              int c = counts[i];
+              if (c < mincount) {
+                continue;
+              }
+              BytesRef term = null;
+              if (contains != null) {
+                term = si.lookupOrd(startTermIndex + i);
+                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+                  continue;
+                }
+              }
+              if (--off >= 0) {
+                continue;
+              }
+              if (term == null) {
+                term = si.lookupOrd(startTermIndex + i);
+              }
+              ft.indexedToReadable(term, charsRef);
+              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
+                res.add(charsRef.toString(), c);
+              }
+              if (--lim <= 0) {
+                break;
+              }
             }
           }
+          res.add("target_offset", actualOffset);
+          res.add("count", entryBuilder.size());
+          addEntry(res, "terms", new NamedList<Object>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
         }
       }
     }
     
     return finalize(res, searcher, schemaField, docs, missingCount, missing);
+  }
+
+  private static void addEntry(NamedList lst, String name, Object val) {
+    lst.add(name, val);
   }
 
   private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
