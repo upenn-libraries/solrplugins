@@ -38,7 +38,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0));
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), false);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -84,6 +84,72 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   }
   
+  public void testOutputComponentTypes() throws IOException {
+    String test = "The quick red fox jumped over the lazy brown dogs";
+
+    TokenTypeSplitFilter ttsf = new TokenTypeSplitFilter(new Blah(whitespaceMockTokenizer(test)), Collections.singleton("even"),
+        Collections.EMPTY_SET, "even_fork", "even_orig");
+    TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
+        Collections.EMPTY_SET, "odd_fork", "odd_orig");
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), true);
+    int count = 0;
+    TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
+    OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
+    PositionIncrementAttribute posIncrAtt = ttjf.getAttribute(PositionIncrementAttribute.class);
+    CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
+    String lastTerm = null;
+    int lastStartOffset = -1;
+    int lastEndOffset = -1;
+    ttjf.reset();
+    while (ttjf.incrementToken()) {
+      String term = termAtt.toString();
+      String type = typeAtt.type();
+      int startOffset = offsetAtt.startOffset();
+      int endOffset = offsetAtt.endOffset();
+      int posIncr = posIncrAtt.getPositionIncrement();
+      System.err.println(term+", "+type+", "+startOffset+", "+endOffset+", "+posIncr);
+      switch (count % 5) {
+        case 0:
+          assertEquals("even_orig", type);
+          assertEquals(1, posIncr);
+          assertEquals(lastEndOffset + 1, startOffset);
+          break;
+        case 1:
+          assertEquals("even_fork", type);
+          assertEquals(lastTerm, term);
+          assertEquals(0, posIncr);
+          assertEquals(lastStartOffset, startOffset);
+          assertEquals(lastEndOffset, endOffset);
+          break;
+        case 2:
+          assertEquals("joined", type);
+          assertEquals(0, posIncr);
+          assertEquals(lastStartOffset, startOffset);
+          String[] split = term.split("!");
+          assertEquals(split[0], split[1]);
+          break;
+        case 3:
+          assertEquals("odd_orig", type);
+          assertEquals(1, posIncr);
+          assertEquals(lastEndOffset + 1, startOffset);
+          break;
+        case 4:
+          assertEquals("odd_fork", type);
+          assertEquals(lastTerm, term);
+          assertEquals(0, posIncr);
+          assertEquals(lastStartOffset, startOffset);
+          assertEquals(lastEndOffset, endOffset);
+          break;
+      }
+      lastTerm = term;
+      lastStartOffset = startOffset;
+      lastEndOffset = endOffset;
+      count++;
+    }
+    assertTrue(count + " does not equal: " + 25, count == 25);
+
+  }
+
   private static final class Blah extends TokenFilter {
 
     private int i = -1;

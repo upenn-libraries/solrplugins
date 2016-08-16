@@ -1431,9 +1431,9 @@ public class FacetComponent extends SearchComponent {
       }
       this.prefix = params.getFieldParam(field, FacetParams.FACET_PREFIX);
       this.target = params.getFieldParam(field, FacetParams.FACET_TARGET);
-      this.targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT);
+      this.targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
       this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
-      this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND);
+      this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
     }
   }
   

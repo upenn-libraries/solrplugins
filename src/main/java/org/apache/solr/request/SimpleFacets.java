@@ -426,7 +426,11 @@ public class SimpleFacets {
     if (target != null) {
       boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
       targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
-      targetBr = ((MultiSerializable)ft).normalizeQueryTarget(target, targetStrict, field);
+      if (ft instanceof MultiSerializable) {
+        targetBr = ((MultiSerializable)ft).normalizeQueryTarget(target, targetStrict, field);
+      } else {
+        targetBr = new BytesRef(target);
+      }
     }
 
     // determine what type of faceting method to use

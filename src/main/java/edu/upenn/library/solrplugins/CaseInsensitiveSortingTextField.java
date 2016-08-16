@@ -86,19 +86,23 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   @Override
   public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException {
     TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, new StringReader(val));
-    ts.reset();
-    CharTermAttribute termAtt = ts.getAttribute(CharTermAttribute.class);
-    TypeAttribute typeAtt = ts.getAttribute(TypeAttribute.class);
-    String matchType = strict ? INDEXED_TOKEN_TYPE : NORMALIZED_TOKEN_TYPE;
-    while (ts.incrementToken()) {
-      if (matchType.equals(typeAtt.type())) {
-        BytesRefBuilder ret = new BytesRefBuilder();
-        ret.copyChars(termAtt.toString());
-        ret.append(delimBytes, 0, delimBytes.length);
-        return ret.get();
+    try {
+      ts.reset();
+      CharTermAttribute termAtt = ts.getAttribute(CharTermAttribute.class);
+      TypeAttribute typeAtt = ts.getAttribute(TypeAttribute.class);
+      String matchType = strict ? INDEXED_TOKEN_TYPE : NORMALIZED_TOKEN_TYPE;
+      while (ts.incrementToken()) {
+        if (matchType.equals(typeAtt.type())) {
+          BytesRefBuilder ret = new BytesRefBuilder();
+          ret.copyChars(termAtt.toString());
+          ret.append(delimBytes, 0, delimBytes.length);
+          return ret.get();
+        }
       }
+      return new BytesRef(BytesRef.EMPTY_BYTES);
+    } finally {
+      ts.close();
     }
-    throw new IllegalStateException("no token of type " + matchType + " found for field " + fieldName + ", val=" + val);
   }
 
   @Override

@@ -30,23 +30,28 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private static final String INPUT_TYPES_ARGNAME = "inputTypes";
   private static final String DELIM_CODEPOINT_ARGNAME = "delimCodepoint";
   private static final String OUTPUT_TYPE_ARGNAME = "outputType";
+  private static final String OUTPUT_COMPONENTS_ARGNAME = "outputComponents";
+  private static final boolean DEFAULT_OUTPUT_COMPONENTS = false;
 
   private static final char DEFAULT_DELIM = '\u0000';
 
   private final String[] inputTypes;
   private final String outputType;
   private final char delim;
+  private final boolean outputComponents;
 
   public TokenTypeJoinFilterFactory(Map<String, String> args) {
     super(args);
     delim = args.containsKey(DELIM_CODEPOINT_ARGNAME) ? Character.toChars(Integer.parseInt(args.get(DELIM_CODEPOINT_ARGNAME)))[0] : DEFAULT_DELIM;
     inputTypes = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
+    String outputComponentsS = args.get(OUTPUT_COMPONENTS_ARGNAME);
+    this.outputComponents = outputComponentsS == null ? DEFAULT_OUTPUT_COMPONENTS : Boolean.parseBoolean(outputComponentsS);
   }
 
   @Override
   public TokenStream create(TokenStream input) {
-    return new TokenTypeJoinFilter(input, inputTypes, outputType, delim);
+    return new TokenTypeJoinFilter(input, inputTypes, outputType, delim, outputComponents);
   }
 
 }

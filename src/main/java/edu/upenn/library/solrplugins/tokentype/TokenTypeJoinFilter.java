@@ -40,6 +40,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final StringBuilder sb = new StringBuilder(200);
   private final String outputType;
   private final char delim;
+  private final boolean outputComponentTokens;
   private final Map<String, Integer> componentIndexMap;
 
   private final String[] components;
@@ -49,7 +50,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private boolean primed = false;
   private int increment = 0;
 
-  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, int delimCodepoint) {
+  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, int delimCodepoint, boolean outputComponentTokens) {
     super(input);
     componentIndexMap = new HashMap<>(componentTypes.length * 2);
     for (int i = 0; i < componentTypes.length; i++) {
@@ -58,6 +59,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     components = new String[componentTypes.length];
     this.outputType = outputType;
     this.delim = Character.toChars(delimCodepoint)[0];
+    this.outputComponentTokens = outputComponentTokens;
   }
 
   @Override
@@ -108,7 +110,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
         bufferedOffsetEnd = offsetAtt.endOffset();
         primed = true;
       }
-      return incrementToken();
+      return outputComponentTokens || incrementToken();
     } else {
       posIncrAtt.setPositionIncrement(increment);
       increment = 0;
@@ -131,6 +133,9 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     termAtt.append(sb);
     typeAtt.setType(outputType);
     offsetAtt.setOffset(bufferedOffsetStart, bufferedOffsetEnd);
+    if (outputComponentTokens) {
+      posIncrAtt.setPositionIncrement(0);
+    }
     Arrays.fill(components, null);
     primed = false;
   }

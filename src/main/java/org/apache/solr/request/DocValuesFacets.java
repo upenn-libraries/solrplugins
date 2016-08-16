@@ -217,7 +217,8 @@ public class DocValuesFacets {
       
       } else {
         // add results in index order
-        int i=(startTermIndex==-1)?1:0;
+        int adjust=(startTermIndex==-1)?1:0;
+        int i = adjust;
         if (mincount<=0 && contains == null) {
           // if mincount<=0 and we're not examining the values for contains, then
           // we won't discard any terms and we know exactly where to start.
@@ -251,9 +252,9 @@ public class DocValuesFacets {
           final int targetIdx = (int)si.lookupTerm(target);
           int actualOffset = offset;
           if (offset > 0) {
-            i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1;
+            i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1 + adjust;
             off = offset;
-            for (; i >= 0; i--) {
+            for (; i >= adjust; i--) {
               int c = counts[i];
               if (c < mincount) {
                 continue;
@@ -279,7 +280,7 @@ public class DocValuesFacets {
             actualOffset = offset - off;
           }
           if (offset < limit) {
-            i = (targetIdx < 0 ? ~targetIdx : targetIdx);
+            i = (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
             if (offset < 0) {
               off = -offset;
               lim = limit;
