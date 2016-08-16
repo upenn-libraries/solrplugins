@@ -279,14 +279,14 @@ public class DocValuesFacets {
             }
             actualOffset = offset - off;
           }
-          if (offset < limit) {
+          if (actualOffset < limit) {
             i = (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
             if (offset < 0) {
               off = -offset;
               lim = limit;
             } else {
               off = 0;
-              lim = offset - limit;
+              lim = actualOffset - limit;
             }
             for (; i < nTerms; i++) {
               int c = counts[i];
