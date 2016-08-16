@@ -315,8 +315,11 @@ public class DocValuesFacets {
               }
             }
           }
-          res.add("target_offset", actualOffset);
-          res.add("count", entryBuilder.size());
+          int count = entryBuilder.size();
+          res.add("count", count);
+          if (count > 0) {
+            res.add("target_offset", actualOffset);
+          }
           addEntry(res, "terms", new NamedList<Object>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
         }
       }
