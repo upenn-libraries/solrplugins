@@ -586,12 +586,13 @@ public class FacetComponent extends SearchComponent {
       
       String paramStart = "f." + dff.field + '.';
       sreq.params.remove(paramStart + FacetParams.FACET_MINCOUNT);
-      String target = sreq.params.get(paramStart + FacetParams.FACET_TARGET);
+      String target = sreq.params.getFieldParam(dff.field, FacetParams.FACET_TARGET);
       if (target == null) {
-        sreq.params.remove(paramStart + FacetParams.FACET_OFFSET);
+        sreq.params.set(paramStart + FacetParams.FACET_OFFSET, 0);
+        dff.initialLimit = dff.limit <= 0 ? dff.limit : dff.offset + dff.limit;
+      } else {
+        dff.initialLimit = dff.limit;
       }
-      
-      dff.initialLimit = dff.limit <= 0 ? dff.limit : dff.offset + dff.limit;
       
       if (dff.sort.equals(FacetParams.FACET_SORT_COUNT)) {
         if (dff.limit > 0) {
