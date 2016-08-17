@@ -252,8 +252,9 @@ public class DocValuesFacets {
           Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(limit, 1000));
           final int targetIdx = (int)si.lookupTerm(target);
           int actualOffset = offset;
+          int descentStartIdx = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1 + adjust;
           if (offset > 0) {
-            i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1 + adjust;
+            i = descentStartIdx;
             off = offset;
             for (; i >= adjust; i--) {
               int c = counts[i];
@@ -275,9 +276,11 @@ public class DocValuesFacets {
                 entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
               }
               if (--off <= 0) {
+                i--;
                 break;
               }
             }
+            descentStartIdx = i;
             actualOffset = offset - off;
           }
           if (actualOffset < limit) {
@@ -323,6 +326,33 @@ public class DocValuesFacets {
                   if (--lim <= 0) {
                     break;
                   }
+              }
+            }
+          }
+          if (entryBuilder.size() < limit) {
+            off = limit - entryBuilder.size();
+            for (i = descentStartIdx; i >= adjust; i--) {
+              int c = counts[i];
+              if (c < mincount) {
+                continue;
+              }
+              BytesRef term = null;
+              if (contains != null) {
+                term = si.lookupOrd(startTermIndex + i);
+                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+                  continue;
+                }
+              }
+              if (term == null) {
+                term = si.lookupOrd(startTermIndex + i);
+              }
+              ft.indexedToReadable(term, charsRef);
+              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
+                entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
+              }
+              actualOffset++;
+              if (--off <= 0) {
+                break;
               }
             }
           }

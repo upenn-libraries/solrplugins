@@ -1186,10 +1186,12 @@ public class FacetComponent extends SearchComponent {
         Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(dff.limit, 1000));
         int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
         int actualOffset = dff.offset;
+        int descentStartIdx = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1;
         if (actualOffset > 0) {
           int lim = Math.min(actualOffset, dff.limit);
           int endOff = dff.limit < 0 ? 0 : actualOffset - dff.limit;
-          for (int i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1; i >= 0; i--) {
+          int i = descentStartIdx;
+          for (; i >= 0; i--) {
             long count = counts[i].count;
             if (count < dff.minCount) {
               continue;
@@ -1200,9 +1202,11 @@ public class FacetComponent extends SearchComponent {
             Object val = counts[i].val != null ? counts[i].val : num(count);
             entryBuilder.addFirst(new SimpleImmutableEntry<>(counts[i].name, val));
             if (--lim <= 0) {
+              i--;
               break;
             }
           }
+          descentStartIdx = i;
           actualOffset = dff.offset - lim;
         }
         int lim = dff.limit >= 0 ? dff.limit : Integer.MAX_VALUE;
@@ -1224,6 +1228,21 @@ public class FacetComponent extends SearchComponent {
             }
             Object val = counts[i].val != null ? counts[i].val : num(count);
             entryBuilder.addLast(new SimpleImmutableEntry<>(counts[i].name, val));
+            if (--lim <= 0) {
+              break;
+            }
+          }
+        }
+        if (entryBuilder.size() < dff.limit) {
+          lim = dff.limit - entryBuilder.size();
+          for (int i = descentStartIdx; i >= 0; i--) {
+            long count = counts[i].count;
+            if (count < dff.minCount) {
+              continue;
+            }
+            Object val = counts[i].val != null ? counts[i].val : num(count);
+            entryBuilder.addFirst(new SimpleImmutableEntry<>(counts[i].name, val));
+            actualOffset++;
             if (--lim <= 0) {
               break;
             }
