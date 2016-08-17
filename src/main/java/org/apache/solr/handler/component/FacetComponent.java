@@ -1195,7 +1195,7 @@ public class FacetComponent extends SearchComponent {
             if (count < dff.minCount) {
               continue;
             }
-            if (endOff-- < 0) {
+            if (endOff-- > 0) {
               continue;
             }
             Object val = counts[i].val != null ? counts[i].val : num(count);
