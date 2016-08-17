@@ -19,9 +19,12 @@ package org.apache.solr.handler.component;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URL;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -555,7 +558,10 @@ public class FacetComponent extends SearchComponent {
       SpatialHeatmapFacets.distribModifyRequest(sreq, fi.heatmapFacets);
       
       sreq.params.remove(FacetParams.FACET_MINCOUNT);
-      sreq.params.remove(FacetParams.FACET_OFFSET);
+      String target = sreq.params.get(FacetParams.FACET_TARGET);
+      if (target == null) {
+        sreq.params.remove(FacetParams.FACET_OFFSET);
+      }
       
     } else {
       // turn off faceting on other requests
@@ -580,7 +586,10 @@ public class FacetComponent extends SearchComponent {
       
       String paramStart = "f." + dff.field + '.';
       sreq.params.remove(paramStart + FacetParams.FACET_MINCOUNT);
-      sreq.params.remove(paramStart + FacetParams.FACET_OFFSET);
+      String target = sreq.params.get(paramStart + FacetParams.FACET_TARGET);
+      if (target == null) {
+        sreq.params.remove(paramStart + FacetParams.FACET_OFFSET);
+      }
       
       dff.initialLimit = dff.limit <= 0 ? dff.limit : dff.offset + dff.limit;
       
@@ -769,7 +778,12 @@ public class FacetComponent extends SearchComponent {
       
       if (facet_fields != null) {
         for (DistribFieldFacet dff : fi.facets.values()) {
-          dff.add(shardNum, (NamedList) facet_fields.get(dff.getKey()), dff.initialLimit);
+          String fieldName = dff.getKey();
+          NamedList field_terms = (NamedList)facet_fields.get(fieldName);
+          if (dff.target != null) {
+            field_terms = (NamedList)field_terms.get("terms");
+          }
+          dff.add(shardNum, field_terms, dff.initialLimit);
         }
       }
 
@@ -1017,6 +1031,9 @@ public class FacetComponent extends SearchComponent {
         if (dff == null) continue;
 
         NamedList shardCounts = (NamedList) facet_fields.getVal(i);
+        if (dff.target != null) {
+          shardCounts = (NamedList) shardCounts.get("terms");
+        }
         
         for (int j = 0; j < shardCounts.size(); j++) {
           String name = shardCounts.getName(j);
@@ -1145,10 +1162,10 @@ public class FacetComponent extends SearchComponent {
           Object val = counts[i].val != null ? counts[i].val : num(counts[i].count);
           fieldCounts.add(counts[i].name, val);
         }
-      } else {
+      } else if (dff.target == null) {
         int off = dff.offset;
         int lim = dff.limit >= 0 ? dff.limit : Integer.MAX_VALUE;
-        
+
         // index order...
         for (int i = 0; i < counts.length; i++) {
           long count = counts[i].count;
@@ -1164,6 +1181,64 @@ public class FacetComponent extends SearchComponent {
           Object val = counts[i].val != null ? counts[i].val : num(count);
           fieldCounts.add(counts[i].name, val);
         }
+      } else {
+        // index order with target/offset
+        Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(dff.limit, 1000));
+        int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
+        System.err.println("XXX limit="+dff.limit+", offset="+dff.offset);
+        int actualOffset = dff.offset;
+        if (actualOffset > 0) {
+          int lim = Math.min(actualOffset, dff.limit);
+          int endOff = dff.limit < 0 ? 0 : actualOffset - dff.limit;
+          for (int i = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1; i >= 0; i--) {
+            long count = counts[i].count;
+            if (count < dff.minCount) {
+              continue;
+            }
+            if (endOff-- < 0) {
+              continue;
+            }
+            Object val = counts[i].val != null ? counts[i].val : num(count);
+            entryBuilder.addFirst(new SimpleImmutableEntry<>(counts[i].name, val));
+            if (--lim <= 0) {
+              break;
+            }
+          }
+          actualOffset = dff.offset - lim;
+        }
+        int lim = dff.limit >= 0 ? dff.limit : Integer.MAX_VALUE;
+        System.err.println("XXX actualOffset="+actualOffset+", lim="+lim);
+        if (actualOffset < lim) {
+          int off;
+          if (actualOffset < 0) {
+            off = -actualOffset;
+          } else {
+            off = 0;
+            lim = lim - actualOffset;
+          }
+          System.err.println("XXX i="+(targetIdx < 0 ? ~targetIdx : targetIdx)+", counts.length="+counts.length);
+          for (int i = (targetIdx < 0 ? ~targetIdx : targetIdx); i < counts.length; i++) {
+            long count = counts[i].count;
+            System.err.println("YYY: "+counts[i].name+", count="+count+", minCount="+dff.minCount+", off="+off+", lim="+lim);
+            if (count < dff.minCount) {
+              continue;
+            }
+            if (--off >= 0) {
+              continue;
+            }
+            Object val = counts[i].val != null ? counts[i].val : num(count);
+            entryBuilder.addLast(new SimpleImmutableEntry<>(counts[i].name, val));
+            if (--lim <= 0) {
+              break;
+            }
+          }
+        }
+        int count = entryBuilder.size();
+        fieldCounts.add("count", count);
+        if (count > 0) {
+          fieldCounts.add("target_offset", actualOffset);
+        }
+        fieldCounts.add("terms", new NamedList<>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
       }
 
       if (dff.missing) {
@@ -1394,8 +1469,7 @@ public class FacetComponent extends SearchComponent {
     public String sort;
     public boolean missing;
     public String prefix;
-    public String target;
-    public boolean targetStrict;
+    public ShardFacetCount target;
     public String targetDoc;
     public boolean extend;
     public long missingCount;
@@ -1430,8 +1504,20 @@ public class FacetComponent extends SearchComponent {
         this.sort = FacetParams.FACET_SORT_INDEX;
       }
       this.prefix = params.getFieldParam(field, FacetParams.FACET_PREFIX);
-      this.target = params.getFieldParam(field, FacetParams.FACET_TARGET);
-      this.targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
+      String rawTarget = params.getFieldParam(field, FacetParams.FACET_TARGET);
+      if (rawTarget != null) {
+        this.target = new ShardFacetCount();
+        boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
+        if (ftype instanceof MultiSerializable) {
+          try {
+            this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field).utf8ToString();
+          } catch (IOException ex) {
+            throw new RuntimeException(ex);
+          }
+        } else {
+          this.target.indexed = rawTarget;
+        }
+      }
       this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
       this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
     }
@@ -1597,7 +1683,7 @@ public class FacetComponent extends SearchComponent {
     
     @Override
     public String toString() {
-      return "{term=" + name + ",termNum=" + termNum + ",count=" + count + "}";
+      return "{term=" + name + ",termNum=" + termNum + ",count=" + count + ",val=" + val + "}";
     }
   }
 

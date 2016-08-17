@@ -286,7 +286,7 @@ public class DocValuesFacets {
               lim = limit;
             } else {
               off = 0;
-              lim = actualOffset - limit;
+              lim = limit - actualOffset;
             }
             for (; i < nTerms; i++) {
               int c = counts[i];
