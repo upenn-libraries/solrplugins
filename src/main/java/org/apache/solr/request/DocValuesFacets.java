@@ -251,7 +251,7 @@ public class DocValuesFacets {
         } else {
           Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(limit, 1000));
           final int targetIdx = (int)si.lookupTerm(target);
-          int actualOffset = offset;
+          int actualOffset = 0;
           int descentStartIdx = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1 + adjust;
           if (offset > 0) {
             i = descentStartIdx;
