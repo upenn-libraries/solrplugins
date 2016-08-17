@@ -210,6 +210,7 @@ public class DocValuesFacets {
           int c = (int)(pair >>> 32);
           int tnum = Integer.MAX_VALUE - (int)pair;
           final BytesRef term = si.lookupOrd(startTermIndex+tnum);
+          ft.indexedToReadable(term, charsRef);
           if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
             res.add(charsRef.toString(), c);
           }
