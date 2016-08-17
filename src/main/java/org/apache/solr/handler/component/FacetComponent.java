@@ -1185,7 +1185,6 @@ public class FacetComponent extends SearchComponent {
         // index order with target/offset
         Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(dff.limit, 1000));
         int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
-        System.err.println("XXX limit="+dff.limit+", offset="+dff.offset);
         int actualOffset = dff.offset;
         if (actualOffset > 0) {
           int lim = Math.min(actualOffset, dff.limit);
@@ -1207,7 +1206,6 @@ public class FacetComponent extends SearchComponent {
           actualOffset = dff.offset - lim;
         }
         int lim = dff.limit >= 0 ? dff.limit : Integer.MAX_VALUE;
-        System.err.println("XXX actualOffset="+actualOffset+", lim="+lim);
         if (actualOffset < lim) {
           int off;
           if (actualOffset < 0) {
@@ -1216,10 +1214,8 @@ public class FacetComponent extends SearchComponent {
             off = 0;
             lim = lim - actualOffset;
           }
-          System.err.println("XXX i="+(targetIdx < 0 ? ~targetIdx : targetIdx)+", counts.length="+counts.length);
           for (int i = (targetIdx < 0 ? ~targetIdx : targetIdx); i < counts.length; i++) {
             long count = counts[i].count;
-            System.err.println("YYY: "+counts[i].name+", count="+count+", minCount="+dff.minCount+", off="+off+", lim="+lim);
             if (count < dff.minCount) {
               continue;
             }
