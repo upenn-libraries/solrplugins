@@ -17,6 +17,7 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -271,7 +272,7 @@ public class DocValuesFacets {
               }
               ft.indexedToReadable(term, charsRef);
               if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
-                res.add(charsRef.toString(), c);
+                entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
               }
               if (--off <= 0) {
                 break;
@@ -281,12 +282,15 @@ public class DocValuesFacets {
           }
           if (actualOffset < limit) {
             i = (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
+            Provisional provisional;
             if (offset < 0) {
               off = -offset;
               lim = limit;
+              provisional = Provisional.PROVISIONAL;
             } else {
               off = 0;
               lim = limit - actualOffset;
+              provisional = Provisional.NEVER;
             }
             for (; i < nTerms; i++) {
               int c = counts[i];
@@ -300,18 +304,25 @@ public class DocValuesFacets {
                   continue;
                 }
               }
-              if (--off >= 0) {
-                continue;
+              if (provisional == Provisional.PROVISIONAL && --off < 0) {
+                provisional = Provisional.SATISFIED;
               }
               if (term == null) {
                 term = si.lookupOrd(startTermIndex + i);
               }
               ft.indexedToReadable(term, charsRef);
               if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
-                res.add(charsRef.toString(), c);
+                entryBuilder.addLast(new SimpleImmutableEntry<>(charsRef.toString(), c));
               }
-              if (--lim <= 0) {
-                break;
+              switch (provisional) {
+                case SATISFIED:
+                  if (entryBuilder.size() > limit) {
+                    entryBuilder.removeFirst();
+                  }
+                case NEVER:
+                  if (--lim <= 0) {
+                    break;
+                  }
               }
             }
           }
@@ -327,6 +338,8 @@ public class DocValuesFacets {
     
     return finalize(res, searcher, schemaField, docs, missingCount, missing);
   }
+
+  private static enum Provisional { NEVER, PROVISIONAL, SATISFIED }
 
   private static void addEntry(NamedList lst, String name, Object val) {
     lst.add(name, val);
