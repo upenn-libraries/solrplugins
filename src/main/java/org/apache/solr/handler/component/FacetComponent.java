@@ -92,16 +92,6 @@ public class FacetComponent extends SearchComponent {
     }
   }
 
-  private void updateExternalRepresentation(NamedList<Object> facet_fields, ResponseBuilder rb) {
-    for (Entry<String, Object> e : facet_fields) {
-      String fieldName = e.getKey();
-      MultiSerializable fieldType;
-      if ((fieldType = extendedFieldType(fieldName, rb)) != null) {
-        fieldType.updateExternalRepresentation((NamedList<Object>)e.getValue());
-      }
-    }
-  }
-
   @Override
   public void prepare(ResponseBuilder rb) throws IOException {
     if (rb.req.getParams().getBool(FacetParams.FACET, false)) {
@@ -1153,6 +1143,7 @@ public class FacetComponent extends SearchComponent {
         counts = dff.getLexSorted();
       }
       
+      NamedList<Object> termVals = fieldCounts;
       if (countSorted) {
         int end = dff.limit < 0 
           ? counts.length : Math.min(dff.offset + dff.limit, counts.length);
@@ -1254,7 +1245,11 @@ public class FacetComponent extends SearchComponent {
         if (count > 0) {
           fieldCounts.add("target_offset", actualOffset);
         }
-        fieldCounts.add("terms", new NamedList<>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
+        termVals = new NamedList<>(entryBuilder.toArray(new Entry[entryBuilder.size()]));
+        fieldCounts.add("terms", termVals);
+      }
+      if (dff.ftype instanceof MultiSerializable) {
+        ((MultiSerializable)dff.ftype).updateExternalRepresentation(termVals);
       }
 
       if (dff.missing) {
@@ -1279,7 +1274,6 @@ public class FacetComponent extends SearchComponent {
     }
 
     rb.rsp.add("facet_counts", facet_counts);
-    updateExternalRepresentation(facet_fields, rb);
 
     rb._facetInfo = null;  // could be big, so release asap
   }
