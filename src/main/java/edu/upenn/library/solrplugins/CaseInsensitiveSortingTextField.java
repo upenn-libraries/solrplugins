@@ -18,7 +18,6 @@ package edu.upenn.library.solrplugins;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -26,7 +25,6 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRef;
@@ -50,6 +48,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
 
   private static final String SERIALIZER_ARGNAME = "serializer";
   private static final String DISPLAYIZER_ARGNAME = "displayizer";
+  private static final String PAYLOAD_HANDLER_ARGNAME = "payloadHandler";
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final char DELIM_CHAR = '\u0000';
   private static final int DEFAULT_HIERARCHY_LEVEL = 0;
@@ -59,6 +58,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private byte[] delimBytes;
   private TextTransformer serializer;
   private TextTransformer displayizer;
+  private FacetPayload payloadHandler;
 
   private String initDelim(int hierarchyLevel) {
     char[] tmp = new char[hierarchyLevel + 1];
@@ -74,6 +74,11 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
     }
     if (args.containsKey(DISPLAYIZER_ARGNAME)) {
       displayizer = loader.newInstance(args.remove(DISPLAYIZER_ARGNAME), TextTransformer.class);
+    }
+    if (args.containsKey(PAYLOAD_HANDLER_ARGNAME)) {
+      payloadHandler = loader.newInstance(args.remove(PAYLOAD_HANDLER_ARGNAME), FacetPayload.class);
+    } else {
+      payloadHandler = new DefaultPayloadHandler();
     }
     if (args.containsKey(HIERARCHY_LEVEL_ARGNAME)) {
       hierarchyLevel = loader.newInstance(args.remove(HIERARCHY_LEVEL_ARGNAME), Integer.class);
@@ -111,6 +116,11 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
       String rawName = nl.getName(i);
       String externalName = readableToExternal(rawName);
       nl.setName(i, externalName);
+      Object val = nl.getVal(i);
+      Object updatedVal;
+      if (!(val instanceof Number) && (updatedVal = updateValueExternalRepresentation(val)) != null) {
+        nl.setVal(i, updatedVal);
+      }
     }
   }
 
@@ -206,41 +216,55 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
 
   @Override
   public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
-    res.add(termKey, buildEntryValue(count, postings));
-    return true;
+    return payloadHandler.addEntry(termKey, count, postings, res);
   }
 
   @Override
-  public Entry<String,Object> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
-    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings));
+  public Entry<String, Object> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+    return payloadHandler.addEntry(termKey, count, postings);
   }
 
-  private NamedList<Object> buildEntryValue(int count, PostingsEnum postings) throws IOException {
-    // proof-of-concept implementation
-    NamedList<Object> entry = new NamedList<>();
-    entry.add("count", count);
-    int i = -1;
-    while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-      i++;
-      NamedList<Object> documentEntry = new NamedList<>();
-      entry.add("doc"+i, documentEntry);
-      for (int j = 0; j < postings.freq(); j++) {
-        postings.nextPosition();
-        String extra = postings.getPayload().utf8ToString();
-        documentEntry.add("position"+j, extra);
-      }
+  @Override
+  public Object mergePayload(Object preExisting, Object add, long preExistingCount, long addCount) {
+    return payloadHandler.mergePayload(preExisting, add, preExistingCount, addCount);
+  }
+
+  @Override
+  public long extractCount(Object val) {
+    return payloadHandler.extractCount(val);
+  }
+
+  @Override
+  public Object updateValueExternalRepresentation(Object internal) {
+    return payloadHandler.updateValueExternalRepresentation(internal);
+  }
+
+  private static class DefaultPayloadHandler implements FacetPayload<Void> {
+
+    @Override
+    public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList<Void> res) throws IOException {
+      return false;
     }
-    return entry;
-  }
 
-  @Override
-  public NamedList<Object> mergePayload(NamedList<Object> preExisting, NamedList<Object> add) {
-    long addCount = ((Number) add.remove("count")).longValue();
-    int countIndex = preExisting.indexOf("count", 0);
-    long preCount = ((Number) preExisting.getVal(countIndex)).longValue();
-    preExisting.setVal(countIndex, preCount + addCount);
-    preExisting.addAll(add);
-    return preExisting;
-  }
+    @Override
+    public Entry<String, Void> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+      return null;
+    }
 
+    @Override
+    public Void mergePayload(Void preExisting, Void add, long preExistingCount, long addCount) {
+      return null;
+    }
+
+    @Override
+    public long extractCount(Void val) {
+      throw new UnsupportedOperationException("Not supported; misconfiguration; this should never happen.");
+    }
+
+    @Override
+    public Object updateValueExternalRepresentation(Void internal) {
+      return null;
+    }
+
+  }
 }

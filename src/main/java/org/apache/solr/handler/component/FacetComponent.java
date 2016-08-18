@@ -1592,11 +1592,16 @@ public class FacetComponent extends SearchComponent {
       for (int i = 0; i < sz; i++) {
         String name = shardCounts.getName(i);
         long count;
-        NamedList<Object> val;
+        Object val;
         if (fPayload != null) {
-          val = (NamedList<Object>) shardCounts.getVal(i);
-          NamedList<Object> extVal = (NamedList<Object>) val;
-          count = ((Number) extVal.get("count")).longValue();
+          Object rawVal = shardCounts.getVal(i);
+          if (rawVal instanceof Number) {
+            val = null;
+            count = ((Number)rawVal).longValue();
+          } else {
+            val = rawVal;
+            count = fPayload.extractCount(val);
+          }
         } else {
           val = null;
           count = ((Number) shardCounts.getVal(i)).longValue();
@@ -1611,12 +1616,10 @@ public class FacetComponent extends SearchComponent {
             sfc.name = name;
             sfc.indexed = ftype == null ? sfc.name : ftype.toInternal(sfc.name);
             sfc.termNum = termNum++;
-            if (fPayload != null) {
-              sfc.val = val;
-            }
+            sfc.val = val;
             counts.put(name, sfc);
           } else if (fPayload != null) {
-            sfc.val = fPayload.mergePayload(sfc.val, val);
+            sfc.val = fPayload.mergePayload(sfc.val, val, sfc.count, count);
           }
           sfc.count += count;
           terms.set(sfc.termNum);
@@ -1688,7 +1691,7 @@ public class FacetComponent extends SearchComponent {
     // the indexed form of the name... used for comparisons
     public String indexed; 
     public long count;
-    public NamedList<Object> val;
+    public Object val;
     public int termNum; // term number starting at 0 (used in bit arrays)
     
     @Override
