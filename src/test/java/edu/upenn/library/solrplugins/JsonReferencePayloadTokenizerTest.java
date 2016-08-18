@@ -22,15 +22,15 @@ public class JsonReferencePayloadTokenizerTest {
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref1", tokenizer.getAttribute(CharTermAttribute.class).toString());
-    assertEquals("use_for:some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref2", tokenizer.getAttribute(CharTermAttribute.class).toString());
-    assertEquals("use_for:some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref3", tokenizer.getAttribute(CharTermAttribute.class).toString());
-    assertEquals("see_also:some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertFalse(tokenizer.incrementToken());
   }

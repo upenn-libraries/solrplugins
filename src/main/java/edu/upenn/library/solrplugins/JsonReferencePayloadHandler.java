@@ -14,6 +14,24 @@ import org.apache.solr.request.FacetPayload;
 /**
  * Builds facet payloads for fields tokenized by JsonReferencePayloadTokenizer.
  *
+ * The NamedList structure for a facet will look like this:
+ *
+ * <lst name="subject_xfacet">
+ *   <lst name="Hegelianism">
+ *     <int name="count">3</int>
+ *     <lst name="see_also">
+ *       <long name="Georg Wilhelm Friedrich Hegel">1</long>
+ *       <long name="History of Marxism">1</long>
+ *     </lst>
+ *   </lst>
+ *   <lst name="Georg Wilhelm Friedrich Hegel">
+ *     <int name="count">2</int>
+ *     <lst name="see_also">
+ *       <long name="History of Marxism">1</long>
+ *     </lst>
+ *   </lst>
+ * </lst>
+ *
  * @author jeffchiu
  */
 public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Object>> {
@@ -30,14 +48,10 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   }
 
   private NamedList<Object> buildEntryValue(int count, PostingsEnum postings) throws IOException {
-    // proof-of-concept implementation
     NamedList<Object> entry = new NamedList<>();
 
     // document count for this term
     entry.add("count", count);
-
-    // nested map: intermediate data structure used for counting within this block
-    Map<String, Map<String, Integer>> referenceTypesToTargetCounts = null;
 
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
       for (int j = 0; j < postings.freq(); j++) {
@@ -45,24 +59,25 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
         BytesRef payload = postings.getPayload();
         if (payload != null) {
-          referenceTypesToTargetCounts = new HashMap<>();
-
           String payloadStr = payload.utf8ToString();
           int pos = payloadStr.indexOf(JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR);
           if (pos != -1) {
             String referenceType = payloadStr.substring(0, pos);
             String target = payloadStr.substring(pos + 1);
 
-            Map<String, Integer> targetsToCounts;
-            if (!referenceTypesToTargetCounts.containsKey(referenceType)) {
-              targetsToCounts = new HashMap<>();
-              referenceTypesToTargetCounts.put(referenceType, targetsToCounts);
-            } else {
-              targetsToCounts = referenceTypesToTargetCounts.get(referenceType);
+            NamedList<Object> targetCountPairs = (NamedList<Object>) entry.get(referenceType);
+            if(targetCountPairs == null) {
+              targetCountPairs = new NamedList<>();
+              entry.add(referenceType, targetCountPairs);
             }
 
-            int newCount = targetsToCounts.getOrDefault(target, 0) + 1;
-            targetsToCounts.put(target, newCount);
+            int indexOfTarget = targetCountPairs.indexOf(target, 0);
+            if(indexOfTarget != -1) {
+              long oldCount = ((Number) targetCountPairs.getVal(indexOfTarget)).longValue();
+              targetCountPairs.setVal(indexOfTarget, oldCount + 1L);
+            } else {
+              targetCountPairs.add(target, 1L);
+            }
           }
         }
 
@@ -73,18 +88,6 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
           System.out.println("found refAttr, " + refAtt.getReferenceType() + "," + refAtt.getTarget());
         }
         */
-      }
-    }
-
-    // convert referenceTypesToTargetCounts to NamedList pairs expected by Solr
-    if (referenceTypesToTargetCounts != null) {
-      for (String referenceType : referenceTypesToTargetCounts.keySet()) {
-        NamedList<Object> targetCountPairs = new NamedList<>();
-        Map<String, Integer> targetsToCounts = referenceTypesToTargetCounts.get(referenceType);
-        for (String target : targetsToCounts.keySet()) {
-          targetCountPairs.add(target, targetsToCounts.get(target));
-        }
-        entry.add(referenceType, targetCountPairs);
       }
     }
 

@@ -52,3 +52,29 @@ adjacent tokens into single output tokens.
 Minor modifications to the solr core code allow all the logic of how
 term values should be represented externally to be implemented at the
 `FieldType` level -- a fully-supported Solr plugin extension point.
+
+## JSON Reference Payload fields
+
+`JsonReferencePayloadTokenizerFactory` will parse a string containing
+a serialized JSON object describing references to other
+terms. `JsonReferencePayloadHandler` is used to create the facet
+payloads in Solr responses.
+
+The use case for this is a facet field which you want to be able to
+browse and display cross-references for.
+
+You'll need to set up a fieldType definition in the schema.xml file:
+
+```xml
+<fieldType name="xfacet" class="edu.upenn.library.solrplugins.CaseInsensitiveSortingTextField" payloadHandler="edu.upenn.library.solrplugins.JsonReferencePayloadHandler" sortMissingLast="true" omitNorms="true">
+  <analyzer>
+    <tokenizer class="edu.upenn.library.solrplugins.JsonReferencePayloadTokenizerFactory"/>
+  </analyzer>
+</fieldType>
+```
+
+Fields can then be defined as follows:
+
+```xml
+<field name="subject_xfacet" type="xfacet" indexed="true" stored="true" multiValued="true" />
+```

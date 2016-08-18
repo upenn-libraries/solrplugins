@@ -31,7 +31,7 @@ import org.apache.lucene.util.BytesRef;
 public final class JsonReferencePayloadTokenizer extends Tokenizer {
 
   private static final JsonFactory jsonFactory = new JsonFactory();
-  public static final String PAYLOAD_ATTR_SEPARATOR = ":";
+  public static final String PAYLOAD_ATTR_SEPARATOR = "\u0000";
   private static final String FIELD_RAW = "raw";
   private static final String FIELD_REFS = "refs";
 
@@ -100,15 +100,14 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
    */
   @Override
   public boolean incrementToken() throws IOException {
-    if (!consumed) {
-      clearAttributes();
+    clearAttributes();
 
+    if (!consumed) {
       parser = jsonFactory.createParser(input);
       parse();
       parser.close();
 
       termAtt.append(raw);
-      termAtt.setLength(raw.length());
 
       referencesIter = references.iterator();
 
@@ -119,9 +118,7 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
 
     if (referencesIter.hasNext()) {
       Reference reference = referencesIter.next();
-      termAtt.setEmpty();
       termAtt.append(reference.target);
-      termAtt.setLength(reference.target.length());
       //refAtt.setReferenceType(reference.referenceType);
       //refAtt.setTarget(raw);
       // note inversion: "target" in attribute is the "raw" field value from JSON
