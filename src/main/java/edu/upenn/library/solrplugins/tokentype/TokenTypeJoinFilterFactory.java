@@ -31,7 +31,9 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private static final String DELIM_CODEPOINT_ARGNAME = "delimCodepoint";
   private static final String OUTPUT_TYPE_ARGNAME = "outputType";
   private static final String OUTPUT_COMPONENTS_ARGNAME = "outputComponents";
+  private static final String APPEND_PLACEHOLDERS_ARGNAME = "appendPlaceholders";
   private static final boolean DEFAULT_OUTPUT_COMPONENTS = false;
+  private static final boolean DEFAULT_APPEND_PLACEHOLDERS = true;
 
   private static final char DEFAULT_DELIM = '\u0000';
 
@@ -39,6 +41,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private final String outputType;
   private final char delim;
   private final boolean outputComponents;
+  private final boolean appendPlaceholders;
 
   public TokenTypeJoinFilterFactory(Map<String, String> args) {
     super(args);
@@ -47,11 +50,13 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
     String outputComponentsS = args.get(OUTPUT_COMPONENTS_ARGNAME);
     this.outputComponents = outputComponentsS == null ? DEFAULT_OUTPUT_COMPONENTS : Boolean.parseBoolean(outputComponentsS);
+    String appendPlaceholdersS = args.get(APPEND_PLACEHOLDERS_ARGNAME);
+    this.appendPlaceholders = appendPlaceholdersS == null ? DEFAULT_APPEND_PLACEHOLDERS : Boolean.parseBoolean(appendPlaceholdersS);
   }
 
   @Override
   public TokenStream create(TokenStream input) {
-    return new TokenTypeJoinFilter(input, inputTypes, outputType, delim, outputComponents);
+    return new TokenTypeJoinFilter(input, inputTypes, outputType, delim, outputComponents, appendPlaceholders);
   }
 
 }

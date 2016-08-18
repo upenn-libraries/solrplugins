@@ -38,7 +38,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), false);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), false, true);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -91,7 +91,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), true);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), true, true);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -107,7 +107,6 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
       int startOffset = offsetAtt.startOffset();
       int endOffset = offsetAtt.endOffset();
       int posIncr = posIncrAtt.getPositionIncrement();
-      System.err.println(term+", "+type+", "+startOffset+", "+endOffset+", "+posIncr);
       switch (count % 5) {
         case 0:
           assertEquals("even_orig", type);
@@ -150,6 +149,35 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   }
 
+  public void testVariableTokenPresence() throws IOException {
+    String test = "The Quick Red Fox Jumped Over The Lazy Brown Dogs";
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new Blah2(whitespaceMockTokenizer(test)), new String[] {"raw", "lower", "upper"}, 
+        "joined", Character.codePointAt("!", 0), false, false);
+    CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
+    ttjf.reset();
+    int i = -1;
+    String[] split = test.split(" ");
+    StringBuilder sb = new StringBuilder();
+    while (ttjf.incrementToken()) {
+      String term = termAtt.toString();
+      switch (++i) {
+        case 0:
+          assertEquals(split[i], term);
+          break;
+        case 1:
+          sb.setLength(0);
+          sb.append(split[i]).append('!').append(split[i].toUpperCase());
+          assertEquals(sb.toString(), term);
+          break;
+        case 2:
+          sb.setLength(0);
+          sb.append(split[i]).append('!').append(split[i].toLowerCase()).append('!').append(split[i].toUpperCase());
+          assertEquals(sb.toString(), term);
+          break;
+      }
+    }
+  }
+
   private static final class Blah extends TokenFilter {
 
     private int i = -1;
@@ -178,6 +206,54 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
       i = -1;
     }
     
+  }
+
+  private static final class Blah2 extends TokenFilter {
+
+    private int i = -1;
+    private int repeat = -1;
+    private String rawTerm;
+    private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
+    private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
+    private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
+
+    public Blah2(TokenStream input) {
+      super(input);
+    }
+
+    @Override
+    public boolean incrementToken() throws IOException {
+      switch (repeat--) {
+        case 2:
+          termAtt.setEmpty().append(rawTerm.toLowerCase());
+          typeAtt.setType("lower");
+          posIncrAtt.setPositionIncrement(0);
+          break;
+        case 1:
+          termAtt.setEmpty().append(rawTerm.toUpperCase());
+          typeAtt.setType("upper");
+          posIncrAtt.setPositionIncrement(0);
+          break;
+        default:
+          if (!this.input.incrementToken()) {
+            return false;
+          }
+          rawTerm = termAtt.toString();
+          typeAtt.setType("raw");
+          repeat = ++i % 3;
+          break;
+      }
+      return true;
+    }
+
+    @Override
+    public void reset() throws IOException {
+      super.reset();
+      i = -1;
+      repeat = -1;
+      rawTerm = null;
+    }
+
   }
 
 

@@ -41,6 +41,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final String outputType;
   private final char delim;
   private final boolean outputComponentTokens;
+  private final boolean appendPlaceholders;
   private final Map<String, Integer> componentIndexMap;
 
   private final String[] components;
@@ -48,9 +49,11 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private int bufferedOffsetEnd;
   private State state;
   private boolean primed = false;
+  private boolean exhausted = false;
   private int increment = 0;
 
-  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, int delimCodepoint, boolean outputComponentTokens) {
+  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, int delimCodepoint,
+      boolean outputComponentTokens, boolean appendPlaceholders) {
     super(input);
     componentIndexMap = new HashMap<>(componentTypes.length * 2);
     for (int i = 0; i < componentTypes.length; i++) {
@@ -60,6 +63,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     this.outputType = outputType;
     this.delim = Character.toChars(delimCodepoint)[0];
     this.outputComponentTokens = outputComponentTokens;
+    this.appendPlaceholders = appendPlaceholders;
   }
 
   @Override
@@ -68,7 +72,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
       restoreState(state);
       state = null;
       return buffer();
-    } else if (input.incrementToken()) {
+    } else if (!exhausted && input.incrementToken()) {
       int inc;
       if ((inc = posIncrAtt.getPositionIncrement()) > 0) {
         if (primed) {
@@ -85,6 +89,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
         return buffer();
       }
     } else if (primed) {
+      exhausted = true;
       posIncrAtt.setPositionIncrement(increment);
       outputJoinedTokens();
       return true;
@@ -124,9 +129,13 @@ public final class TokenTypeJoinFilter extends TokenFilter {
       sb.append(components[0]);
     }
     for (int i = 1; i < components.length; i++) {
-      sb.append(delim);
-      if (components[i] != null) {
-        sb.append(components[i]);
+      if (appendPlaceholders) {
+        sb.append(delim);
+        if (components[i] != null) {
+          sb.append(components[i]);
+        }
+      } else if (components[i] != null) {
+        sb.append(delim).append(components[i]);
       }
     }
     termAtt.setEmpty();
