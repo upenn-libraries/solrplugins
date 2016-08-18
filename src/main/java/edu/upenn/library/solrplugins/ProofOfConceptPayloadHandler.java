@@ -27,7 +27,7 @@ import org.apache.solr.request.FacetPayload;
  *
  * @author magibney
  */
-class ProofOfConceptPayloadHandler implements FacetPayload<NamedList<Object>> {
+public class ProofOfConceptPayloadHandler implements FacetPayload<NamedList<Object>> {
 
   @Override
   public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
