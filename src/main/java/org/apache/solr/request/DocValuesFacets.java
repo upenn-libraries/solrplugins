@@ -273,7 +273,7 @@ public class DocValuesFacets {
                 term = si.lookupOrd(startTermIndex + i);
               }
               ft.indexedToReadable(term, charsRef);
-              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
+              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, true))) {
                 entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
               }
               if (--off <= 0) {
@@ -348,7 +348,7 @@ public class DocValuesFacets {
                 term = si.lookupOrd(startTermIndex + i);
               }
               ft.indexedToReadable(term, charsRef);
-              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
+              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, true))) {
                 entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
               }
               actualOffset++;
