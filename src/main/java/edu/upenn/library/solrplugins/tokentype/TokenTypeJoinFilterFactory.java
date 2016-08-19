@@ -15,6 +15,7 @@
  */
 package edu.upenn.library.solrplugins.tokentype;
 
+import java.util.Arrays;
 import java.util.Map;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
@@ -29,23 +30,33 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
 
   private static final String INPUT_TYPES_ARGNAME = "inputTypes";
   private static final String DELIM_CODEPOINT_ARGNAME = "delimCodepoint";
+  private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final String OUTPUT_TYPE_ARGNAME = "outputType";
   private static final String OUTPUT_COMPONENTS_ARGNAME = "outputComponents";
   private static final String APPEND_PLACEHOLDERS_ARGNAME = "appendPlaceholders";
   private static final boolean DEFAULT_OUTPUT_COMPONENTS = false;
-  private static final boolean DEFAULT_APPEND_PLACEHOLDERS = true;
+  private static final boolean DEFAULT_APPEND_PLACEHOLDERS = false;
+  private static final int DEFAULT_HIERARCHY_LEVEL = 0;
 
   private static final char DEFAULT_DELIM = '\u0000';
 
   private final String[] inputTypes;
   private final String outputType;
-  private final char delim;
+  private final String delim;
   private final boolean outputComponents;
   private final boolean appendPlaceholders;
 
   public TokenTypeJoinFilterFactory(Map<String, String> args) {
     super(args);
-    delim = args.containsKey(DELIM_CODEPOINT_ARGNAME) ? Character.toChars(Integer.parseInt(args.get(DELIM_CODEPOINT_ARGNAME)))[0] : DEFAULT_DELIM;
+    char delimChar = args.containsKey(DELIM_CODEPOINT_ARGNAME) ? Character.toChars(Integer.parseInt(args.get(DELIM_CODEPOINT_ARGNAME)))[0] : DEFAULT_DELIM;
+    int hierarchyLevel = args.containsKey(HIERARCHY_LEVEL_ARGNAME) ? Integer.parseInt(args.get(HIERARCHY_LEVEL_ARGNAME)) : DEFAULT_HIERARCHY_LEVEL;
+    if (hierarchyLevel <= 0) {
+      delim = Character.toString(delimChar);
+    } else {
+      char[] delimBuilder = new char[hierarchyLevel + 1];
+      Arrays.fill(delimBuilder, delimChar);
+      delim = new String(delimBuilder);
+    }
     inputTypes = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
     String outputComponentsS = args.get(OUTPUT_COMPONENTS_ARGNAME);

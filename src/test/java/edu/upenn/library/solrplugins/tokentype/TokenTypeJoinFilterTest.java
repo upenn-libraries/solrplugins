@@ -38,7 +38,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), false, true);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", "!", false, true);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -91,7 +91,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", Character.codePointAt("!", 0), true, true);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", "!", true, true);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -152,7 +152,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
   public void testVariableTokenPresence() throws IOException {
     String test = "The Quick Red Fox Jumped Over The Lazy Brown Dogs";
     TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new Blah2(whitespaceMockTokenizer(test)), new String[] {"raw", "lower", "upper"}, 
-        "joined", Character.codePointAt("!", 0), false, false);
+        "joined", "!", false, false);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     ttjf.reset();
     int i = -1;

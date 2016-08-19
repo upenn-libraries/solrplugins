@@ -39,7 +39,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
 
   private final StringBuilder sb = new StringBuilder(200);
   private final String outputType;
-  private final char delim;
+  private final String delim;
   private final boolean outputComponentTokens;
   private final boolean appendPlaceholders;
   private final Map<String, Integer> componentIndexMap;
@@ -52,7 +52,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private boolean exhausted = false;
   private int increment = 0;
 
-  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, int delimCodepoint,
+  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, String delim,
       boolean outputComponentTokens, boolean appendPlaceholders) {
     super(input);
     componentIndexMap = new HashMap<>(componentTypes.length * 2);
@@ -61,7 +61,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
     components = new String[componentTypes.length];
     this.outputType = outputType;
-    this.delim = Character.toChars(delimCodepoint)[0];
+    this.delim = delim;
     this.outputComponentTokens = outputComponentTokens;
     this.appendPlaceholders = appendPlaceholders;
   }
