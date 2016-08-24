@@ -27,6 +27,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.handler.component.FacetComponent.ShardFacetCount;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.FacetKey;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.search.SolrIndexSearcher;
@@ -37,7 +38,7 @@ import org.apache.solr.search.SolrIndexSearcher;
  */
 public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayload, K extends FacetKey<K>> {
 
-  public static <T extends FieldType & FacetPayload, K extends FacetKey<K>> void build(Env<T, K> env, OuterIteratorFactory<T, K> outer, InnerIteratorFactory<T, K> inner) throws IOException {
+  public static <T extends FieldType & FacetPayload, K extends FacetKey<K>> NamedList<Object> build(Env<T, K> env, OuterIteratorFactory<T, K> outer, InnerIteratorFactory<T, K> inner) throws IOException {
     Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(env.limit, 1000));
     int actualOffset;
     FacetResultIterator fri;
@@ -46,22 +47,24 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     } else {
       fri = inner.initialInstance(env, outer);
     }
-    int size = 0;
     do {
       if (fri.init()) {
         do {
-          size = fri.addEntry(entryBuilder);
+          fri.addEntry(entryBuilder);
         } while (fri.hasNextEntry());
       }
       actualOffset = fri.getActualOffset();
-      fri = fri.nextIterator(size);
+      fri = fri.nextIterator(entryBuilder.size());
     } while (fri != null);
     NamedList res = env.res;
+    int size = entryBuilder.size();
     res.add("count", size);
     if (size > 0) {
       res.add("target_offset", actualOffset);
     }
-    res.add("terms", new NamedList<Object>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
+    NamedList<Object> ret = new NamedList<Object>(entryBuilder.toArray(new Entry[size]));
+    res.add("terms", ret);
+    return ret;
   }
   
   public static interface OuterIteratorFactory<T extends FieldType & FacetPayload, K extends FacetKey<K>> {
@@ -77,9 +80,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
   public static interface FacetResultIterator<T extends FieldType & FacetPayload> {
     boolean init();
     boolean hasNextEntry();
-    int addEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException;
+    void addEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException;
     int getActualOffset();
-    FacetResultIterator<T> nextIterator(int size) throws IOException;
+    FacetResultIterator<T> nextIterator(int currentSize) throws IOException;
   }
 
   private static enum Provisional { NEVER, PROVISIONAL, SATISFIED }
@@ -106,7 +109,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
         provisional = Provisional.NEVER;
       }
       LimitMinder<T, K> limitMinder = new IncrementingLimitMinder(env.targetKeyInit(true));
-      return new AscendingFacetTermIterator<>(provisional, limitMinder, actualOffsetInit, off, lim, descentStartIdx, initialSize, env, outer);
+      return new AscendingFacetTermIterator<>(provisional, limitMinder, actualOffsetInit, off, lim, descentStartIdx, env, outer);
     }
     
   }
@@ -118,8 +121,8 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     private final OuterIteratorFactory<T, K> next;
     
     private AscendingFacetTermIterator(Provisional provisionalInit, LimitMinder limitMinder, int actualOffsetInit, int off, int lim,
-        K descentStartIdx, int initialSize, Env<T, K> env, OuterIteratorFactory<T, K> next) {
-      super(limitMinder, actualOffsetInit, off, lim, initialSize, env);
+        K descentStartIdx, Env<T, K> env, OuterIteratorFactory<T, K> next) {
+      super(limitMinder, actualOffsetInit, off, lim, env);
       this.provisional = provisionalInit;
       this.descentStartIdx = descentStartIdx;
       this.next = next;
@@ -127,8 +130,12 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
     @Override
     protected boolean preAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      if (provisional == Provisional.PROVISIONAL && super.preAddEntry(entryBuilder)) {
-        provisional = Provisional.SATISFIED;
+      if (provisional == Provisional.PROVISIONAL) {
+        if (super.preAddEntry(entryBuilder)) {
+          provisional = Provisional.SATISFIED;
+        } else {
+          actualOffset--;
+        }
       }
       return true;
     }
@@ -136,6 +143,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     @Override
     protected boolean postAddEntry(Deque<Entry<String, Object>> entryBuilder) {
       switch (provisional) {
+        case PROVISIONAL:
+          if (entryBuilder.size() > env.limit) {
+            entryBuilder.removeFirst();
+          }
+          return false;
         case SATISFIED:
           if (entryBuilder.size() > env.limit) {
             entryBuilder.removeFirst();
@@ -143,7 +155,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
         case NEVER:
           return super.postAddEntry(entryBuilder);
         default:
-          return false;
+          throw new IllegalStateException("unexpected provisional state: " + provisional);
       }
     }
 
@@ -166,9 +178,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       int actualOffsetInit = 0;
       K startIndex = env.decrementKey(env.targetKey());
       LimitMinder<T, K> limitMinder = new DecrementingLimitMinder(startIndex);
-      int off = Math.min(0, env.offset - env.limit);
-      int lim = Math.min(env.offset, env.limit);
-      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, off, lim, 0, env, finalDescent, inner, outer);
+      int off;
+      int lim;
+      if (env.offset > env.limit) {
+        off = env.offset - env.limit;
+        lim = env.limit;
+      } else {
+        off = 0;
+        lim = env.offset;
+      }
+      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, off, lim, env, finalDescent, inner, outer);
     }
 
     @Override
@@ -176,7 +195,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       boolean finalDescent = true;
       LimitMinder<T, K> limitMinder = new DecrementingLimitMinder(startIndex);
       int lim = env.limit - size;
-      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, 0, lim, size, env, finalDescent, null, null);
+      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, 0, lim, env, finalDescent, null, null);
     }
     
   }
@@ -187,9 +206,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     private final InnerIteratorFactory<T, K> inner;
     private final OuterIteratorFactory<T, K> outer;
     
-    private DescendingFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, int initialSize, Env<T, K> env,
+    private DescendingFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, Env<T, K> env,
         boolean finalDescent, InnerIteratorFactory<T, K> inner, OuterIteratorFactory<T, K> outer) {
-      super(limitMinder, actualOffsetInit, off, lim, initialSize, env);
+      super(limitMinder, actualOffsetInit, off, lim, env);
       this.finalDescent = finalDescent;
       this.inner = inner;
       this.outer = outer;
@@ -231,18 +250,17 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     protected K facetKey;
     private final LimitMinder<T, K> limitMinder;
     protected int actualOffset;
-    protected int size;
     private int off;
     private int lim;
     protected final Env<T, K> env;
+    private boolean exhausted = false;
 
-    public BaseFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, int initialSize, Env<T, K> env) {
+    public BaseFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, Env<T, K> env) {
       this.limitMinder = limitMinder;
       this.actualOffset = actualOffsetInit;
       this.env = env;
       this.off = off;
       this.lim = lim;
-      this.size = initialSize;
     }
 
     @Override
@@ -252,7 +270,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
     @Override
     public boolean hasNextEntry() {
-      return (facetKey = limitMinder.nextKey(facetKey, env)) != null;
+      if (exhausted) {
+        return false;
+      } else {
+        return (facetKey = limitMinder.nextKey(facetKey, env)) != null;
+      }
     }
 
     protected boolean preAddEntry(Deque<Entry<String, Object>> entryBuilder) {
@@ -264,21 +286,21 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     }
     
     @Override
-    public int addEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException {
+    public void addEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException {
       if (preAddEntry(entryBuilder)) {
         innerAddEntry(entryBuilder);
-        postAddEntry(entryBuilder);
+        if (postAddEntry(entryBuilder)) {
+          exhausted = true;
+        }
       }
-      return size;
     }
     
     protected void innerAddEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException {
       env.addEntry(limitMinder, facetKey, entryBuilder);
-      size++;
     }
 
     @Override
-    public FacetResultIterator<T> nextIterator(int size) throws IOException {
+    public FacetResultIterator<T> nextIterator(int currentSize) throws IOException {
       return null;
     }
 
@@ -362,7 +384,12 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public int compareTo(SimpleTermIndexKey o) {
       return Integer.compare(index, o.index);
     }
-    
+
+    @Override
+    public String toString() {
+      return SimpleTermIndexKey.class.getSimpleName() + "(index=" + index + ')';
+    }
+
   }
   
   public static abstract class Env<T extends FieldType & FacetPayload, K extends FacetKey<K>> {
@@ -398,6 +425,74 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
   }
   
+  public static class DistribEnv<T extends FieldType & FacetPayload> extends Env<T, SimpleTermIndexKey> {
+
+    private final ShardFacetCount[] counts;
+
+    public DistribEnv(int offset, int limit, int targetIdx, String targetDoc, int mincount, String fieldName, T ft,
+        NamedList res, ShardFacetCount[] counts) {
+      super(offset, limit, targetIdx, targetDoc, mincount, fieldName, ft, res);
+      this.counts = counts;
+    }
+
+    static Number num(long val) {
+      if (val < Integer.MAX_VALUE) {
+        return (int)val;
+      } else {
+        return val;
+      }
+    }
+
+    @Override
+    public SimpleTermIndexKey incrementKey(SimpleTermIndexKey previousKey) {
+      int index = previousKey.index;
+      index = index < 0 ? 0 : index + 1;
+      if (index >= counts.length) {
+        return null;
+      } else {
+        return new SimpleTermIndexKey(index);
+      }
+    }
+
+    @Override
+    public SimpleTermIndexKey decrementKey(SimpleTermIndexKey previousKey) {
+      int index = previousKey.index;
+      index = (index > counts.length ? counts.length : index) - 1;
+      if (index < 0) {
+        return null;
+      } else {
+        return new SimpleTermIndexKey(index);
+      }
+    }
+
+    @Override
+    public void addEntry(LimitMinder<T, SimpleTermIndexKey> limitMinder, SimpleTermIndexKey facetKey, Deque<Entry<String, Object>> entryBuilder) throws IOException {
+      ShardFacetCount sfc = counts[facetKey.index];
+      Object val = sfc.val != null ? sfc.val : num(sfc.count);
+      limitMinder.addEntry(new SimpleImmutableEntry<>(sfc.name, val), entryBuilder);
+    }
+
+    @Override
+    public SimpleTermIndexKey targetKey() throws IOException {
+      int index = (targetIdx < 0 ? ~targetIdx : targetIdx);
+      return new SimpleTermIndexKey(index);
+    }
+
+    @Override
+    public SimpleTermIndexKey targetKeyInit(boolean ascending) throws IOException {
+      int index = (targetIdx < 0 ? ~targetIdx : targetIdx);
+      SimpleTermIndexKey ret = new SimpleTermIndexKey(index);
+      if (index >= 0 && index < counts.length) {
+        return ret;
+      } else if (ascending) {
+        return incrementKey(ret);
+      } else {
+        return decrementKey(ret);
+      }
+    }
+
+  }
+
   public static abstract class LocalEnv<T extends FieldType & FacetPayload, K extends FacetKey<K>> extends Env<T, K> {
 
     protected final int startTermIndex;
