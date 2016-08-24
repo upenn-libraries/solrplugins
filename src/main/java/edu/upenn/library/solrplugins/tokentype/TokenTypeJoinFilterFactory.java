@@ -32,6 +32,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private static final String DELIM_CODEPOINT_ARGNAME = "delimCodepoint";
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final String OUTPUT_TYPE_ARGNAME = "outputType";
+  private static final String TYPE_FOR_PAYLOAD_ARGNAME = "typeForPayload";
   private static final String OUTPUT_COMPONENTS_ARGNAME = "outputComponents";
   private static final String APPEND_PLACEHOLDERS_ARGNAME = "appendPlaceholders";
   private static final boolean DEFAULT_OUTPUT_COMPONENTS = false;
@@ -42,6 +43,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
 
   private final String[] inputTypes;
   private final String outputType;
+  private final String typeForPayload;
   private final String delim;
   private final boolean outputComponents;
   private final boolean appendPlaceholders;
@@ -59,6 +61,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
     }
     inputTypes = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
+    typeForPayload = args.get(TYPE_FOR_PAYLOAD_ARGNAME);
     String outputComponentsS = args.get(OUTPUT_COMPONENTS_ARGNAME);
     this.outputComponents = outputComponentsS == null ? DEFAULT_OUTPUT_COMPONENTS : Boolean.parseBoolean(outputComponentsS);
     String appendPlaceholdersS = args.get(APPEND_PLACEHOLDERS_ARGNAME);
@@ -67,7 +70,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
 
   @Override
   public TokenStream create(TokenStream input) {
-    return new TokenTypeJoinFilter(input, inputTypes, outputType, delim, outputComponents, appendPlaceholders);
+    return new TokenTypeJoinFilter(input, inputTypes, outputType, typeForPayload, delim, outputComponents, appendPlaceholders);
   }
 
 }
