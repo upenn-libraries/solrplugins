@@ -85,7 +85,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     FacetResultIterator<T> nextIterator(int currentSize) throws IOException;
   }
 
-  private static enum Provisional { NEVER, PROVISIONAL, SATISFIED }
+  public static enum Provisional { NEVER, PROVISIONAL, SATISFIED }
 
   public static class AscendingFacetTermIteratorFactory<T extends FieldType & FacetPayload, K extends FacetKey<K>> implements InnerIteratorFactory<T, K> {
 
@@ -116,49 +116,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
   
   public static class AscendingFacetTermIterator<T extends FieldType & FacetPayload, K extends FacetKey<K>> extends BaseFacetTermIterator<T, K> {
 
-    private Provisional provisional;
     private final K descentStartIdx;
     private final OuterIteratorFactory<T, K> next;
     
     private AscendingFacetTermIterator(Provisional provisionalInit, LimitMinder limitMinder, int actualOffsetInit, int off, int lim,
         K descentStartIdx, Env<T, K> env, OuterIteratorFactory<T, K> next) {
-      super(limitMinder, actualOffsetInit, off, lim, env);
-      this.provisional = provisionalInit;
+      super(limitMinder, actualOffsetInit, provisionalInit, off, lim, env);
       this.descentStartIdx = descentStartIdx;
       this.next = next;
     }
     
-    @Override
-    protected boolean preAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      if (provisional == Provisional.PROVISIONAL) {
-        if (super.preAddEntry(entryBuilder)) {
-          provisional = Provisional.SATISFIED;
-        } else {
-          actualOffset--;
-        }
-      }
-      return true;
-    }
-
-    @Override
-    protected boolean postAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      switch (provisional) {
-        case PROVISIONAL:
-          if (entryBuilder.size() > env.limit) {
-            entryBuilder.removeFirst();
-          }
-          return false;
-        case SATISFIED:
-          if (entryBuilder.size() > env.limit) {
-            entryBuilder.removeFirst();
-          }
-        case NEVER:
-          return super.postAddEntry(entryBuilder);
-        default:
-          throw new IllegalStateException("unexpected provisional state: " + provisional);
-      }
-    }
-
     @Override
     public FacetResultIterator<T> nextIterator(int size) throws IOException {
       if (size >= env.limit) {
@@ -168,8 +135,13 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       }
     }
 
+    @Override
+    protected void adjustOffset() {
+      actualOffset--;
+    }
+
   }
-  
+
   public static class DescendingFacetTermIteratorFactory<T extends FieldType & FacetPayload, K extends FacetKey<K>> implements OuterIteratorFactory<T, K> {
 
     @Override
@@ -180,14 +152,17 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       LimitMinder<T, K> limitMinder = new DecrementingLimitMinder(startIndex);
       int off;
       int lim;
+      Provisional provisionalInit;
       if (env.offset > env.limit) {
         off = env.offset - env.limit;
         lim = env.limit;
+        provisionalInit = Provisional.PROVISIONAL;
       } else {
         off = 0;
         lim = env.offset;
+        provisionalInit = Provisional.NEVER;
       }
-      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, off, lim, env, finalDescent, inner, outer);
+      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, provisionalInit, off, lim, env, finalDescent, inner, outer);
     }
 
     @Override
@@ -195,7 +170,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       boolean finalDescent = true;
       LimitMinder<T, K> limitMinder = new DecrementingLimitMinder(startIndex);
       int lim = env.limit - size;
-      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, 0, lim, env, finalDescent, null, null);
+      return new DescendingFacetTermIterator<>(limitMinder, actualOffsetInit, Provisional.NEVER, 0, lim, env, finalDescent, null, null);
     }
     
   }
@@ -206,28 +181,12 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     private final InnerIteratorFactory<T, K> inner;
     private final OuterIteratorFactory<T, K> outer;
     
-    private DescendingFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, Env<T, K> env,
+    private DescendingFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, Provisional provisionalInit, int off, int lim, Env<T, K> env,
         boolean finalDescent, InnerIteratorFactory<T, K> inner, OuterIteratorFactory<T, K> outer) {
-      super(limitMinder, actualOffsetInit, off, lim, env);
+      super(limitMinder, actualOffsetInit, provisionalInit, off, lim, env);
       this.finalDescent = finalDescent;
       this.inner = inner;
       this.outer = outer;
-    }
-
-    @Override
-    protected boolean preAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      if (super.preAddEntry(entryBuilder)) {
-        return true;
-      } else {
-        actualOffset++;
-        return false;
-      }
-    }
-
-    @Override
-    protected boolean postAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      actualOffset++;
-      return super.postAddEntry(entryBuilder);
     }
 
     @Override
@@ -242,10 +201,15 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
         return null;
       }
     }
-    
+
+    @Override
+    protected void adjustOffset() {
+      actualOffset++;
+    }
+
   }
 
-  public static class BaseFacetTermIterator<T extends FieldType & FacetPayload, K extends FacetKey<K>> implements FacetResultIterator<T> {
+  public static abstract class BaseFacetTermIterator<T extends FieldType & FacetPayload, K extends FacetKey<K>> implements FacetResultIterator<T> {
     
     protected K facetKey;
     private final LimitMinder<T, K> limitMinder;
@@ -253,14 +217,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     private int off;
     private int lim;
     protected final Env<T, K> env;
+    private Provisional provisional;
     private boolean exhausted = false;
 
-    public BaseFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, int off, int lim, Env<T, K> env) {
+    public BaseFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, Provisional provisional, int off, int lim, Env<T, K> env) {
       this.limitMinder = limitMinder;
       this.actualOffset = actualOffsetInit;
       this.env = env;
       this.off = off;
       this.lim = lim;
+      this.provisional = provisional;
     }
 
     @Override
@@ -278,13 +244,32 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     }
 
     protected boolean preAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      return --off < 0;
+      if (provisional == Provisional.PROVISIONAL) {
+        if (--off < 0) {
+          provisional = Provisional.SATISFIED;
+        }
+        if (entryBuilder.size() >= env.limit) {
+          entryBuilder.removeFirst();
+          adjustOffset();
+        }
+      }
+      return true;
     }
     
+    protected abstract void adjustOffset();
+
     protected boolean postAddEntry(Deque<Entry<String, Object>> entryBuilder) {
-      return --lim <= 0;
+      switch (provisional) {
+        case PROVISIONAL:
+          return false;
+        case SATISFIED:
+        case NEVER:
+          return --lim <= 0;
+        default:
+          throw new IllegalStateException("unexpected provisional state: " + provisional);
+      }
     }
-    
+
     @Override
     public void addEntry(Deque<Entry<String, Object>> entryBuilder) throws IOException {
       if (preAddEntry(entryBuilder)) {
