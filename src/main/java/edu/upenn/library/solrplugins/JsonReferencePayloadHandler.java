@@ -12,22 +12,32 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.FacetPayload;
 
 /**
- * Builds facet payloads for fields tokenized by JsonReferencePayloadTokenizer.
+ * Builds facet payloads from fields containing normalized, filing, and
+ * prefix strings joined by a delimiter, and a payload attribute
+ * containing information about references.
  *
  * The NamedList structure for a facet will look like this:
  *
  * <lst name="subject_xfacet">
  *   <lst name="Hegelianism">
  *     <int name="count">3</int>
- *     <lst name="see_also">
- *       <long name="Georg Wilhelm Friedrich Hegel">1</long>
- *       <long name="History of Marxism">1</long>
+ *     <str name="prefix"></str>
+ *     <str name="filing">Hegelianism</str>
+ *     <lst name="refs">
+ *       <lst name="see_also">
+ *         <long name="Georg Wilhelm Friedrich Hegel">1</long>
+ *         <long name="History of Marxism">1</long>
+ *       </lst>
  *     </lst>
  *   </lst>
  *   <lst name="Georg Wilhelm Friedrich Hegel">
  *     <int name="count">2</int>
- *     <lst name="see_also">
- *       <long name="History of Marxism">1</long>
+ *     <str name="prefix">Georg Wilhelm Friedrich </str>
+ *     <str name="filing">Hegel</str>
+ *     <lst name="refs">
+ *       <lst name="see_also">
+ *         <long name="History of Marxism">1</long>
+ *       </lst>
  *     </lst>
  *   </lst>
  * </lst>
@@ -35,10 +45,29 @@ import org.apache.solr.request.FacetPayload;
  * @author jeffchiu
  */
 public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Object>> {
+  private static final String DELIM = "\u0000";
+  private static final String KEY_REFS = "refs";
+  private static final String KEY_PREFIX = "prefix";
+  private static final String KEY_FILING = "filing";
 
   @Override
   public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
-    res.add(termKey, buildEntryValue(count, postings));
+    String[] parts = termKey.split(DELIM);
+    if(parts.length < 2) {
+      throw new IOException("Expected term '" + termKey + "' to split into at least 2 strings, but split resulted in " + parts.length + " strings instead");
+    }
+    String normalized = parts[0];
+    String filing = parts[1];
+    String prefix = "";
+    if(parts.length > 2) {
+      prefix = parts[2];
+    }
+
+    NamedList<Object> entry = buildEntryValue(count, postings);
+    entry.add(KEY_PREFIX, prefix);
+    entry.add(KEY_FILING, filing);
+
+    res.add(prefix + filing, entry);
     return true;
   }
 
@@ -52,6 +81,8 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
     // document count for this term
     entry.add("count", count);
+
+    NamedList<Object> refs = new NamedList<>();
 
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
       for (int j = 0; j < postings.freq(); j++) {
@@ -68,7 +99,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
             NamedList<Object> targetCountPairs = (NamedList<Object>) entry.get(referenceType);
             if(targetCountPairs == null) {
               targetCountPairs = new NamedList<>();
-              entry.add(referenceType, targetCountPairs);
+              refs.add(referenceType, targetCountPairs);
             }
 
             int indexOfTarget = targetCountPairs.indexOf(target, 0);
@@ -91,6 +122,10 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
       }
     }
 
+    if(refs.size() > 0) {
+      entry.add(KEY_REFS, refs);
+    }
+
     return entry;
   }
 
@@ -104,41 +139,48 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     long preCount = ((Number)preExisting.getVal(countIndex)).longValue();
     preExisting.setVal(countIndex, preCount + addCount);
 
-    Iterator<Map.Entry<String, Object>> refTypesIter = add.iterator();
-    while (refTypesIter.hasNext()) {
-      Map.Entry<String, Object> entry = refTypesIter.next();
-      String addReferenceType = entry.getKey();
-      NamedList<Object> addTargetCounts = (NamedList<Object>) entry.getValue();
+    if(add.get(KEY_REFS) != null) {
+      NamedList<Object> addRefs = (NamedList<Object>) add.get(KEY_REFS);
+      Iterator<Map.Entry<String, Object>> refTypesIter = addRefs.iterator();
+      while (refTypesIter.hasNext()) {
+        Map.Entry<String, Object> entry = refTypesIter.next();
+        String addReferenceType = entry.getKey();
+        NamedList<Object> addTargetCounts = (NamedList<Object>) entry.getValue();
 
-      // if this referenceType doesn't exist in preExisting yet, create it
-      NamedList<Object> existingTargetCounts = (NamedList<Object>) preExisting.get(addReferenceType);
-      if (existingTargetCounts == null) {
-        existingTargetCounts = new NamedList<Object>();
-        preExisting.add(addReferenceType, existingTargetCounts);
-      }
-
-      // loop through target+count pairs, merge them into preExisting
-      Iterator<Map.Entry<String, Object>> addTargetCountsIter = addTargetCounts.iterator();
-      while (addTargetCountsIter.hasNext()) {
-        Map.Entry<String, Object> targetCountEntry = addTargetCountsIter.next();
-        String target = targetCountEntry.getKey();
-        Number addTargetCount = (Number) targetCountEntry.getValue();
-
-        int index = existingTargetCounts.indexOf(target, 0);
-        long existingCount = 0;
-        Number existingCountNum = (Number) existingTargetCounts.get(target);
-        if (existingCountNum != null) {
-          existingCount = existingCountNum.longValue();
+        // if this referenceType doesn't exist in preExisting yet, create it
+        NamedList<Object> preExistingRefs = (NamedList<Object>) preExisting.get(KEY_REFS);
+        if(preExistingRefs == null) {
+          preExistingRefs = new NamedList<Object>();
+          preExisting.add(KEY_REFS, preExistingRefs);
         }
-        existingCount += addTargetCount.longValue();
-        if (index != -1) {
-          existingTargetCounts.setVal(index, existingCount);
-        } else {
-          existingTargetCounts.add(target, existingCount);
+        NamedList<Object> existingTargetCounts = (NamedList<Object>) preExistingRefs.get(addReferenceType);
+        if (existingTargetCounts == null) {
+          existingTargetCounts = new NamedList<Object>();
+        }
+        preExistingRefs.add(addReferenceType, existingTargetCounts);
+
+        // loop through target+count pairs, merge them into preExisting
+        Iterator<Map.Entry<String, Object>> addTargetCountsIter = addTargetCounts.iterator();
+        while (addTargetCountsIter.hasNext()) {
+          Map.Entry<String, Object> targetCountEntry = addTargetCountsIter.next();
+          String target = targetCountEntry.getKey();
+          Number addTargetCount = (Number) targetCountEntry.getValue();
+
+          int index = existingTargetCounts.indexOf(target, 0);
+          long existingCount = 0;
+          Number existingCountNum = (Number) existingTargetCounts.get(target);
+          if (existingCountNum != null) {
+            existingCount = existingCountNum.longValue();
+          }
+          existingCount += addTargetCount.longValue();
+          if (index != -1) {
+            existingTargetCounts.setVal(index, existingCount);
+          } else {
+            existingTargetCounts.add(target, existingCount);
+          }
         }
       }
     }
-
     return preExisting;
   }
 

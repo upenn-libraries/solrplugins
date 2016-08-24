@@ -12,9 +12,12 @@ public class JsonReferencePayloadHandlerTest {
     preUseForTargetCounts.add("G. Hegel", 2L);
     preUseForTargetCounts.add("Georg Hegel", 3L);
 
+    NamedList<Object> preRefs = new NamedList<>();
+    preRefs.add("use_for", preUseForTargetCounts);
+
     NamedList<Object> preExisting = new NamedList<>();
     preExisting.add("count", 10L);
-    preExisting.add("use_for", preUseForTargetCounts);
+    preExisting.add("refs", preRefs);
 
     NamedList<Object> addUseForTargetCounts = new NamedList<>();
     addUseForTargetCounts.add("G. Hegel", 4L);
@@ -23,10 +26,13 @@ public class JsonReferencePayloadHandlerTest {
     NamedList<Object> addSeeAlsoTargetCounts = new NamedList<>();
     addSeeAlsoTargetCounts.add("G. W. F. Hegel", 4L);
 
+    NamedList<Object> addRefs = new NamedList<>();
+    addRefs.add("use_for", addUseForTargetCounts);
+    addRefs.add("see_also", addSeeAlsoTargetCounts);
+
     NamedList<Object> add = new NamedList<>();
     add.add("count", 4L);
-    add.add("use_for", addUseForTargetCounts);
-    add.add("see_also", addSeeAlsoTargetCounts);
+    add.add("refs", addRefs);
 
     JsonReferencePayloadHandler handler = new JsonReferencePayloadHandler();
 
@@ -34,7 +40,8 @@ public class JsonReferencePayloadHandlerTest {
 
     assertEquals(14L, result.get("count"));
 
-    NamedList<Object> useForTargetCounts = (NamedList<Object>) result.get("use_for");
+    NamedList<Object> mergedRefs = (NamedList<Object>) result.get("refs");
+    NamedList<Object> useForTargetCounts = (NamedList<Object>) mergedRefs.get("use_for");
 
     assertEquals(3, useForTargetCounts.size());
 
@@ -42,7 +49,7 @@ public class JsonReferencePayloadHandlerTest {
     assertEquals(3L, useForTargetCounts.get("Georg Hegel"));
     assertEquals(1L, useForTargetCounts.get("Hegel"));
 
-    NamedList<Object> seeAlsoTargetCounts = (NamedList<Object>) result.get("see_also");
+    NamedList<Object> seeAlsoTargetCounts = (NamedList<Object>) mergedRefs.get("see_also");
 
     assertEquals(1, seeAlsoTargetCounts.size());
 
