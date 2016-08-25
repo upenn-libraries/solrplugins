@@ -256,23 +256,26 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
     assertFalse(ttjf.incrementToken());
   }
 
+  TokenArrayTokenizer.Token[] tokensWithPayloadsInDifferentTokenTypes = new TokenArrayTokenizer.Token[] {
+          new TokenArrayTokenizer.Token("unconsoled", "normalized", 1, "payload1"),
+          new TokenArrayTokenizer.Token("Unconsoled", "filing", 0, null),
+          new TokenArrayTokenizer.Token("The ", "prefix", 0, null),
+
+          new TokenArrayTokenizer.Token("payload in filing", "normalized", 2, null),
+          new TokenArrayTokenizer.Token("Payload in Filing", "filing", 0, "payload2"),
+
+          new TokenArrayTokenizer.Token("room with a view", "normalized", 3, "payload3"),
+          new TokenArrayTokenizer.Token("Room With A View", "filing", 0, null),
+          new TokenArrayTokenizer.Token("A ", "prefix", 0, null),
+
+          new TokenArrayTokenizer.Token("no payload2", "normalized", 4, null),
+          new TokenArrayTokenizer.Token("No Payload2", "filing", 0, null),
+  };
+
   /** verify that payload gets overwritten properly across groups of tokens*/
-  public void testTypeForPayload3() throws IOException {
-    TokenArrayTokenizer.Token[] tokensWithPayloads = new TokenArrayTokenizer.Token[] {
-            new TokenArrayTokenizer.Token("unconsoled", "normalized", 1, null),
-            new TokenArrayTokenizer.Token("Unconsoled", "filing", 0, "payload1"),
-            new TokenArrayTokenizer.Token("The ", "prefix", 0, null),
-
-            new TokenArrayTokenizer.Token("room with a view", "normalized", 2, null),
-            new TokenArrayTokenizer.Token("Room With A View", "filing", 0, "payload2"),
-            new TokenArrayTokenizer.Token("A ", "prefix", 0, null),
-
-            new TokenArrayTokenizer.Token("no payload", "normalized", 3, null),
-            new TokenArrayTokenizer.Token("No Payload", "filing", 0, null),
-    };
-
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloads), new String[] {"normalized", "filing", "prefix"},
-            "joined", "filing", "!", false, false);
+  public void testTypeForPayloadOverwrite1() throws IOException {
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), new String[] {"normalized", "filing", "prefix"},
+            "joined", "normalized", "!", false, false);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     PayloadAttribute payloadAtt = ttjf.getAttribute(PayloadAttribute.class);
@@ -286,19 +289,60 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
     assertTrue(ttjf.incrementToken());
 
-    assertEquals("room with a view!Room With A View!A ", termAtt.toString());
+    assertEquals("payload in filing!Payload in Filing", termAtt.toString());
     assertEquals("joined", typeAtt.type());
-    assertEquals("payload2", payloadAtt.getPayload().utf8ToString());
+    assertNull(payloadAtt.getPayload());
 
     assertTrue(ttjf.incrementToken());
 
-    assertEquals("no payload!No Payload", termAtt.toString());
+    assertEquals("room with a view!Room With A View!A ", termAtt.toString());
+    assertEquals("joined", typeAtt.type());
+    assertEquals("payload3", payloadAtt.getPayload().utf8ToString());
+
+    assertTrue(ttjf.incrementToken());
+
+    assertEquals("no payload2!No Payload2", termAtt.toString());
     assertEquals("joined", typeAtt.type());
     assertNull(payloadAtt.getPayload());
 
     assertFalse(ttjf.incrementToken());
   }
 
+  /** verify that payload gets overwritten properly across groups of tokens*/
+  public void testTypeForPayloadOverwrite2() throws IOException {
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), new String[] {"normalized", "filing", "prefix"},
+            "joined", "filing", "!", false, false);
+    CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
+    TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
+    PayloadAttribute payloadAtt = ttjf.getAttribute(PayloadAttribute.class);
+    ttjf.reset();
+
+    assertTrue(ttjf.incrementToken());
+
+    assertEquals("unconsoled!Unconsoled!The ", termAtt.toString());
+    assertEquals("joined", typeAtt.type());
+    assertNull(payloadAtt.getPayload());
+
+    assertTrue(ttjf.incrementToken());
+
+    assertEquals("payload in filing!Payload in Filing", termAtt.toString());
+    assertEquals("joined", typeAtt.type());
+    assertEquals("payload2", payloadAtt.getPayload().utf8ToString());
+
+    assertTrue(ttjf.incrementToken());
+
+    assertEquals("room with a view!Room With A View!A ", termAtt.toString());
+    assertEquals("joined", typeAtt.type());
+    assertNull(payloadAtt.getPayload());
+
+    assertTrue(ttjf.incrementToken());
+
+    assertEquals("no payload2!No Payload2", termAtt.toString());
+    assertEquals("joined", typeAtt.type());
+    assertNull(payloadAtt.getPayload());
+
+    assertFalse(ttjf.incrementToken());
+  }
 
   private static final class Blah extends TokenFilter {
 

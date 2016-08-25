@@ -164,9 +164,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     if (outputComponentTokens) {
       posIncrAtt.setPositionIncrement(0);
     }
-    if(payload != null) {
-      payloadAtt.setPayload(payload);
-    }
+    payloadAtt.setPayload(payload);
     Arrays.fill(components, null);
     primed = false;
   }
