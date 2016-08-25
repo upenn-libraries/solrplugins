@@ -61,7 +61,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   /**
    * Copies a field value from one NamedList into another
    */
-  private static void copyField(NamedList<Object> from, NamedList<Object> to, String key) {
+  private static void copyFieldInNamedList(NamedList<Object> from, NamedList<Object> to, String key) {
     int index = from.indexOf(key, 0);
     if(index != -1) {
       Object value = from.get(key);
@@ -72,6 +72,21 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
         to.add(key, value);
       }
     }
+  }
+
+  /**
+   * For passed-in NamedList, get the NamedList value for a certain key,
+   * creating and storing it if it doesn't exist.
+   * @param namedList
+   * @param key
+   */
+  private static NamedList<Object> getOrCreateNamedListValue(NamedList<Object> namedList, String key) {
+    NamedList<Object> result = (NamedList<Object>) namedList.get(key);
+    if(result == null) {
+      result = new NamedList<>();
+      namedList.add(key, result);
+    }
+    return result;
   }
 
   @Override
@@ -117,17 +132,9 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
             MultiPartString multiPartString = MultiPartString.parse(target);
             String displayName = multiPartString.getDisplay();
 
-            NamedList<Object> displayNameStructs = (NamedList<Object>) entry.get(referenceType);
-            if(displayNameStructs == null) {
-              displayNameStructs = new NamedList<>();
-              refs.add(referenceType, displayNameStructs);
-            }
+            NamedList<Object> displayNameStructs = getOrCreateNamedListValue(entry, referenceType);
 
-            NamedList<Object> nameStruct = (NamedList<Object>) displayNameStructs.get(displayName);
-            if(nameStruct == null) {
-              nameStruct = new NamedList<>();
-              displayNameStructs.add(displayName, nameStruct);
-            }
+            NamedList<Object> nameStruct = getOrCreateNamedListValue(displayNameStructs, displayName);
 
             int indexOfCount = nameStruct.indexOf("count", 0);
             if(indexOfCount != -1) {
@@ -181,17 +188,10 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
         NamedList<Object> addNameStructs = (NamedList<Object>) entry.getValue();
 
         // if "refs" doesn't exist in preExisting yet, create it
-        NamedList<Object> preExistingRefs = (NamedList<Object>) preExisting.get(KEY_REFS);
-        if(preExistingRefs == null) {
-          preExistingRefs = new NamedList<Object>();
-          preExisting.add(KEY_REFS, preExistingRefs);
-        }
+        NamedList<Object> preExistingRefs = getOrCreateNamedListValue(preExisting, KEY_REFS);
+
         // if referenceType doesn't exist in preExisting yet, create it
-        NamedList<Object> preExistingNameStructs = (NamedList<Object>) preExistingRefs.get(addReferenceType);
-        if (preExistingNameStructs == null) {
-          preExistingNameStructs = new NamedList<Object>();
-        }
-        preExistingRefs.add(addReferenceType, preExistingNameStructs);
+        NamedList<Object> preExistingNameStructs = getOrCreateNamedListValue(preExistingRefs, addReferenceType);
 
         // loop through names and merge them into preExisting
         Iterator<Map.Entry<String, Object>> addNameStructsIter = addNameStructs.iterator();
@@ -201,14 +201,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
           NamedList<Object> addNameStruct = (NamedList<Object>) nameStructEntry.getValue();
 
           // if name doesn't exist in preExisting yet, create it
-          int index = preExistingNameStructs.indexOf(name, 0);
-          NamedList<Object> preExistingNameStruct;
-          if (index != -1) {
-            preExistingNameStruct = (NamedList<Object>) preExistingNameStructs.getVal(index);
-          } else {
-            preExistingNameStruct = new NamedList<Object>();
-            preExistingNameStructs.add(name, preExistingNameStruct);
-          }
+          NamedList<Object> preExistingNameStruct = getOrCreateNamedListValue(preExistingNameStructs, name);
 
           // merge count
           long existingCount = 0;
@@ -223,9 +216,9 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
             preExistingNameStruct.add("count", newCount);
           }
 
-          copyField(addNameStruct, preExistingNameStruct, "normalized");
-          copyField(addNameStruct, preExistingNameStruct, "filing");
-          copyField(addNameStruct, preExistingNameStruct, "prefix");
+          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "normalized");
+          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "filing");
+          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "prefix");
         }
       }
     }
