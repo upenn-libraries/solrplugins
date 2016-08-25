@@ -12,13 +12,11 @@ public class JsonReferencePayloadHandlerTest {
 
     NamedList<Object> preGHegelStruct = new NamedList<>();
     preGHegelStruct.add("count", 2L);
-    preGHegelStruct.add("normalized", "hegel");
     preGHegelStruct.add("prefix", "G. ");
     preGHegelStruct.add("filing", "Hegel");
 
     NamedList<Object> preGeorgHegelStruct = new NamedList<>();
     preGeorgHegelStruct.add("count", 3L);
-    preGeorgHegelStruct.add("normalized", "hegel2");
     preGeorgHegelStruct.add("prefix", "Georg ");
     preGeorgHegelStruct.add("filing", "Hegel2");
 
@@ -37,13 +35,11 @@ public class JsonReferencePayloadHandlerTest {
 
     NamedList<Object> addGHegelStruct = new NamedList<>();
     addGHegelStruct.add("count", 4L);
-    addGHegelStruct.add("normalized", "hegel");
     addGHegelStruct.add("prefix", "G. ");
     addGHegelStruct.add("filing", "Hegel");
 
     NamedList<Object> addHegelStruct = new NamedList<>();
     addHegelStruct.add("count", 1L);
-    addHegelStruct.add("normalized", "hegel3");
     addHegelStruct.add("filing", "Hegel3");
 
     NamedList<Object> addUseForNameStructs = new NamedList<>();
@@ -52,7 +48,6 @@ public class JsonReferencePayloadHandlerTest {
 
     NamedList<Object> addGWFHegelStruct = new NamedList<>();
     addGWFHegelStruct.add("count", 4L);
-    addGWFHegelStruct.add("normalized", "hegel");
     addGWFHegelStruct.add("prefix", "G. W. F. ");
     addGWFHegelStruct.add("filing", "Hegel");
 
@@ -82,19 +77,16 @@ public class JsonReferencePayloadHandlerTest {
 
     NamedList<Object> useFor1 = (NamedList<Object>) useForNameStructs.get("G. Hegel");
     assertEquals(6L, useFor1.get("count"));
-    assertEquals("hegel", useFor1.get("normalized"));
     assertEquals("G. ", useFor1.get("prefix"));
     assertEquals("Hegel", useFor1.get("filing"));
 
     NamedList<Object> useFor2 = (NamedList<Object>) useForNameStructs.get("Georg Hegel2");
     assertEquals(3L, useFor2.get("count"));
-    assertEquals("hegel2", useFor2.get("normalized"));
     assertEquals("Georg ", useFor2.get("prefix"));
     assertEquals("Hegel2", useFor2.get("filing"));
 
     NamedList<Object> useFor3 = (NamedList<Object>) useForNameStructs.get("Hegel3");
     assertEquals(1L, useFor3.get("count"));
-    assertEquals("hegel3", useFor3.get("normalized"));
     assertEquals("Hegel3", useFor3.get("filing"));
 
     NamedList<Object> seeAlsoNameStructs = (NamedList<Object>) mergedRefs.get("see_also");
@@ -104,7 +96,6 @@ public class JsonReferencePayloadHandlerTest {
     NamedList<Object> seeAlso1 = (NamedList<Object>) seeAlsoNameStructs.get("G. W. F. Hegel");
 
     assertEquals(4L, seeAlso1.get("count"));
-    assertEquals("hegel", seeAlso1.get("normalized"));
     assertEquals("G. W. F. ", seeAlso1.get("prefix"));
     assertEquals("Hegel", seeAlso1.get("filing"));
   }

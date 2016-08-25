@@ -52,21 +52,38 @@ public class MultiPartString {
     return (prefix != null ? prefix : "") + (filing != null ? filing : "");
   }
 
-  public static MultiPartString parse(String s) {
+  /**
+   * prefix is optionally present
+   */
+  public static MultiPartString parseNormalizedFilingAndPrefix(String s) {
     String[] parts = s.split(DELIMITER);
     String normalized = parts[0];
     String filing = parts[1];
-    String prefix = "";
+    String prefix = null;
     if(parts.length > 2) {
       prefix = parts[2];
     }
     return new MultiPartString(normalized, filing, prefix);
   }
 
-  public String toDelimitedString() {
+  /**
+   * prefix is optionally present
+   */
+  public static MultiPartString parseFilingAndPrefix(String s) {
+    String[] parts = s.split(DELIMITER);
+    String filing = parts[0];
+    String prefix = null;
+    if(parts.length > 1) {
+      prefix = parts[1];
+    }
+    return new MultiPartString(filing, prefix);
+  }
+
+  /**
+   * prefix is only included if present
+   */
+  public String toDelimitedStringForFilingAndPrefix() {
     StringBuilder b = new StringBuilder();
-    b.append(normalized);
-    b.append(DELIMITER);
     b.append(filing);
     if(prefix != null) {
       b.append(DELIMITER);

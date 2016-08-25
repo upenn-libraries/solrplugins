@@ -35,9 +35,8 @@ import org.apache.lucene.util.BytesRef;
  * "multi-part string", which is a JSON object that has
  * "prefix" and "filing" keys.
  *
- * The stream from this tokenizer consists of all these terms
- * typed as "normalized", "prefix," and "filing". Use a
- * TokenTypeJoinFilter to join these into a single term
+ * The stream from this tokenizer consists of "prefix" and "filing"
+ * terms. Use a TokenTypeJoinFilter to join these into a single term
  * which should be suitable for normalized sorting and which
  * can be parsed for facet payloads.
  *
@@ -51,7 +50,6 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
   private static final String FIELD_REFS = "refs";
   private static final String MULTIPART_STRING_PREFIX = "prefix";
   private static final String MULTIPART_STRING_FILING = "filing";
-  public static final String TYPE_NORMALIZED = "normalized";
   public static final String TYPE_PREFIX = MULTIPART_STRING_PREFIX;
   public static final String TYPE_FILING = MULTIPART_STRING_FILING;
 
@@ -84,29 +82,15 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
   }
 
   /**
-   * TODO: how to normalize?
-   */
-  private String normalize(MultiPartString s) {
-    return s.getFiling();
-  }
-
-  /**
    * Creates tokens for the passed-in MultiPartString
    * and appends them to this object's internal list.
    */
   private void appendTokens(MultiPartString multiPartString, String payload, int positionIncrement) {
-    Token normToken = new Token();
-    normToken.term = multiPartString.getNormalized();
-    normToken.type = TYPE_NORMALIZED;
-    normToken.payload = payload;
-    normToken.positionIncrement = positionIncrement;
-    tokens.add(normToken);
-
     Token filingToken = new Token();
     filingToken.term = multiPartString.getFiling();
     filingToken.type = TYPE_FILING;
     filingToken.payload = payload;
-    filingToken.positionIncrement = 0;
+    filingToken.positionIncrement = positionIncrement;
     tokens.add(filingToken);
 
     if(multiPartString.getPrefix() != null) {
@@ -141,7 +125,7 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
             JsonToken t = parser.nextToken();
             if (t == JsonToken.START_ARRAY) {
               while (parser.nextToken() != JsonToken.END_ARRAY) {
-                String payload = referenceType + PAYLOAD_ATTR_SEPARATOR + raw.toDelimitedString();
+                String payload = referenceType + PAYLOAD_ATTR_SEPARATOR + raw.toDelimitedStringForFilingAndPrefix();
                 appendTokens(parseStringOrMultipartStringObject(), payload, positionIncrement);
                 positionIncrement++;
               }
@@ -183,7 +167,6 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
     } else {
       throw new IOException("Expected string or object representing multipart string, but got " + t.name());
     }
-    multiPartString.setNormalized(normalize(multiPartString));
     return multiPartString;
   }
 

@@ -11,7 +11,7 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.FacetPayload;
 
 /**
- * Builds facet payloads from fields containing normalized, filing, and
+ * Builds facet payloads from fields containing filing and
  * prefix strings joined by a delimiter, and a payload attribute
  * containing information about references.
  *
@@ -20,14 +20,12 @@ import org.apache.solr.request.FacetPayload;
  * <lst name="subject_xfacet">
  *   <lst name="Hegelianism">
  *     <int name="count">3</int>
- *     <str name="normalized">hegelianism</str>
  *     <str name="prefix"></str>
  *     <str name="filing">Hegelianism</str>
  *     <lst name="refs">
  *       <lst name="see_also">
  *         <lst name="Georg Wilhelm Friedrich Hegel">
  *           <long name="count">1</int>
- *           <str name="normalized">hegel</str>
  *           <str name="prefix">Georg Wilhelm Friedrich </str>
  *           <str name="filing">Hegel</str>
  *         </lst>
@@ -41,9 +39,9 @@ import org.apache.solr.request.FacetPayload;
 public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Object>> {
   private static final String DELIM = "\u0000";
   private static final String KEY_REFS = "refs";
-  private static final String KEY_NORMALIZED = "normalized";
   private static final String KEY_PREFIX = "prefix";
   private static final String KEY_FILING = "filing";
+  private static final String KEY_COUNT = "count";
 
   /**
    * overwrite entry in NamedList with new value
@@ -89,31 +87,50 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     return result;
   }
 
+  /**
+   * increment a Long value in a NamedList stored under "key", creating it with value of 1
+   * if it doesn't exist.
+   */
+  private static void incrementLongInNamedList(NamedList<Object> namedList, String key) {
+    int index = namedList.indexOf(key, 0);
+    if(index != -1) {
+      long oldCount = ((Number) namedList.getVal(index)).longValue();
+      namedList.setVal(index, oldCount + 1L);
+    } else {
+      namedList.add(key, 1L);
+    }
+  }
+
   @Override
   public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
-    MultiPartString multiPartString = MultiPartString.parse(termKey);
+    MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
 
-    NamedList<Object> entry = buildEntryValue(count, postings);
-    entry.add(KEY_NORMALIZED, multiPartString.getNormalized());
-    entry.add(KEY_FILING, multiPartString.getFiling());
-    if(multiPartString.getPrefix() != null) {
-      entry.add(KEY_PREFIX, multiPartString.getPrefix());
-    }
+    NamedList<Object> entry = buildEntryValue(term, count, postings);
 
-    res.add(multiPartString.getDisplay(), entry);
+    res.add(term.getDisplay(), entry);
     return true;
   }
 
   @Override
   public Map.Entry<String, NamedList<Object>> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
-    return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings));
+    MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
+    return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, postings));
   }
 
-  private NamedList<Object> buildEntryValue(int count, PostingsEnum postings) throws IOException {
+  private NamedList<Object> buildEntryValue(MultiPartString term, int count, PostingsEnum postings) throws IOException {
     NamedList<Object> entry = new NamedList<>();
 
     // document count for this term
-    entry.add("count", count);
+    entry.add(KEY_COUNT, count);
+
+    NamedList<Object> self = new NamedList<>();
+    entry.add("self", self);
+
+    self.add(KEY_COUNT, 0L);
+    overwriteInNamedList(self, KEY_FILING, term.getFiling());
+    if(term.getPrefix() != null) {
+      overwriteInNamedList(self, KEY_PREFIX, term.getPrefix());
+    }
 
     NamedList<Object> refs = new NamedList<>();
 
@@ -129,27 +146,23 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
             String referenceType = payloadStr.substring(0, pos);
             String target = payloadStr.substring(pos + 1);
 
-            MultiPartString multiPartString = MultiPartString.parse(target);
+            MultiPartString multiPartString = MultiPartString.parseFilingAndPrefix(target);
             String displayName = multiPartString.getDisplay();
 
-            NamedList<Object> displayNameStructs = getOrCreateNamedListValue(entry, referenceType);
+            NamedList<Object> displayNameStructs = getOrCreateNamedListValue(refs, referenceType);
 
             NamedList<Object> nameStruct = getOrCreateNamedListValue(displayNameStructs, displayName);
 
-            int indexOfCount = nameStruct.indexOf("count", 0);
-            if(indexOfCount != -1) {
-              long oldCount = ((Number) nameStruct.getVal(indexOfCount)).longValue();
-              nameStruct.setVal(indexOfCount, oldCount + 1L);
-            } else {
-              nameStruct.add("count", 1L);
-            }
+            incrementLongInNamedList(nameStruct, KEY_COUNT);
 
-            overwriteInNamedList(nameStruct, "normalized", multiPartString.getNormalized());
-            overwriteInNamedList(nameStruct, "filing", multiPartString.getFiling());
+            overwriteInNamedList(nameStruct, KEY_FILING, multiPartString.getFiling());
             if(multiPartString.getPrefix() != null) {
-              overwriteInNamedList(nameStruct, "prefix", multiPartString.getPrefix());
+              overwriteInNamedList(nameStruct, KEY_PREFIX, multiPartString.getPrefix());
             }
           }
+        } else {
+          // no payload means term is for self, so increment count
+          incrementLongInNamedList(self, KEY_COUNT);
         }
 
         // Couldn't get this to work: postings.attributes() doesn't return anything: why?
@@ -172,10 +185,10 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   @Override
   public NamedList<Object> mergePayload(NamedList<Object> preExisting, NamedList<Object> add, long preExistingCount, long addCount) {
 
-    if (addCount != ((Number)add.remove("count")).longValue()) {
+    if (addCount != ((Number)add.remove(KEY_COUNT)).longValue()) {
       throw new IllegalStateException("fieldType-internal and -external counts do not match");
     }
-    int countIndex = preExisting.indexOf("count", 0);
+    int countIndex = preExisting.indexOf(KEY_COUNT, 0);
     long preCount = ((Number)preExisting.getVal(countIndex)).longValue();
     preExisting.setVal(countIndex, preCount + addCount);
 
@@ -205,20 +218,19 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
           // merge count
           long existingCount = 0;
-          int indexOfCount = preExistingNameStruct.indexOf("count", 0);
+          int indexOfCount = preExistingNameStruct.indexOf(KEY_COUNT, 0);
           if(indexOfCount != -1) {
-            existingCount = ((Number) preExistingNameStruct.get("count")).longValue();
+            existingCount = ((Number) preExistingNameStruct.get(KEY_COUNT)).longValue();
           }
-          long newCount = existingCount + ((Number) addNameStruct.get("count")).longValue();
+          long newCount = existingCount + ((Number) addNameStruct.get(KEY_COUNT)).longValue();
           if(indexOfCount != -1) {
             preExistingNameStruct.setVal(indexOfCount, newCount);
           } else {
-            preExistingNameStruct.add("count", newCount);
+            preExistingNameStruct.add(KEY_COUNT, newCount);
           }
 
-          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "normalized");
-          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "filing");
-          copyFieldInNamedList(addNameStruct, preExistingNameStruct, "prefix");
+          copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_FILING);
+          copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_PREFIX);
         }
       }
     }
@@ -227,7 +239,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
   @Override
   public long extractCount(NamedList<Object> val) {
-    return ((Number) val.get("count")).longValue();
+    return ((Number) val.get(KEY_COUNT)).longValue();
   }
 
   @Override
