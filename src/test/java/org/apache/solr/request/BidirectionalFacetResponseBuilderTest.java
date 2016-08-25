@@ -37,16 +37,34 @@ import static org.junit.Assert.*;
 public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPayload> {
   
   private final int[] counts;
+  private final int[] evenCounts;
+  private final int[] oddCounts;
   
   public BidirectionalFacetResponseBuilderTest() {
     counts = new int[3];
     Arrays.fill(counts, 1);
+    evenCounts = new int[5];
+    oddCounts = new int[5];
+    for (int i = 0; i < 5; i++) {
+      switch (i % 2) {
+        case 0:
+          evenCounts[i] = 1;
+          break;
+        case 1:
+          oddCounts[i] = 1;
+          break;
+      }
+    }
   }
   
   @Test
   public void testZeroOffset() throws IOException {
     runTest(1, 0, 0, 0, 0);
+    runTest(oddCounts, 1, 0, 0, 0, 1);
+    runTest(evenCounts, 1, 0, 0, 0, 0);
     runTest(1, 1, 0, 0, 1);
+    runTest(oddCounts, 1, 1, 0, 0, 1);
+    runTest(evenCounts, 1, 1, 0, 0, 2);
   }
   
   @Test
@@ -97,6 +115,10 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
   }
   
   private void runTest(int limit, int targetIdx, int requestedOffset, Integer expectedOffset, int... expectedIndices) throws IOException {
+    runTest(counts, limit, targetIdx, requestedOffset, expectedOffset, expectedIndices);
+  }
+
+  private void runTest(int[] counts, int limit, int targetIdx, int requestedOffset, Integer expectedOffset, int... expectedIndices) throws IOException {
     String targetDoc = null;
     int mincount = 1;
     String fieldName = "myField";
@@ -137,22 +159,24 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     public SimpleTermIndexKey incrementKey(SimpleTermIndexKey previousKey) {
       int index = previousKey.index;
       index = index < 0 ? 0 : index + 1;
-      if (index >= counts.length) {
-        return null;
-      } else {
-        return new SimpleTermIndexKey(index);
+      for (; index < counts.length; index++) {
+        if (acceptTerm(index)) {
+          return new SimpleTermIndexKey(index);
+        }
       }
+      return null;
     }
 
     @Override
     public SimpleTermIndexKey decrementKey(SimpleTermIndexKey previousKey) {
       int index = previousKey.index;
       index = (index > counts.length ? counts.length : index) - 1;
-      if (index < 0) {
-        return null;
-      } else {
-        return new SimpleTermIndexKey(index);
+      for (; index >= 0; index--) {
+        if (acceptTerm(index)) {
+          return new SimpleTermIndexKey(index);
+        }
       }
+      return null;
     }
 
     @Override
@@ -171,13 +195,17 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     public SimpleTermIndexKey targetKeyInit(boolean ascending) throws IOException {
       int index = (targetIdx < 0 ? ~targetIdx : targetIdx);
       SimpleTermIndexKey ret = new SimpleTermIndexKey(index);
-      if (index >= 0 && index < counts.length) {
+      if (index >= 0 && index < counts.length && acceptTerm(index)) {
         return ret;
       } else if (ascending) {
         return incrementKey(ret);
       } else {
         return decrementKey(ret);
       }
+    }
+
+    private boolean acceptTerm(int i) {
+      return counts[i] >= mincount;
     }
 
   }

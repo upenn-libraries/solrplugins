@@ -437,22 +437,24 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public SimpleTermIndexKey incrementKey(SimpleTermIndexKey previousKey) {
       int index = previousKey.index;
       index = index < 0 ? 0 : index + 1;
-      if (index >= counts.length) {
-        return null;
-      } else {
-        return new SimpleTermIndexKey(index);
+      for (; index < counts.length; index++) {
+        if (acceptTerm(index)) {
+          return new SimpleTermIndexKey(index);
+        }
       }
+      return null;
     }
 
     @Override
     public SimpleTermIndexKey decrementKey(SimpleTermIndexKey previousKey) {
       int index = previousKey.index;
       index = (index > counts.length ? counts.length : index) - 1;
-      if (index < 0) {
-        return null;
-      } else {
-        return new SimpleTermIndexKey(index);
+      for (; index >= 0; index--) {
+        if (acceptTerm(index)) {
+          return new SimpleTermIndexKey(index);
+        }
       }
+      return null;
     }
 
     @Override
@@ -472,13 +474,17 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public SimpleTermIndexKey targetKeyInit(boolean ascending) throws IOException {
       int index = (targetIdx < 0 ? ~targetIdx : targetIdx);
       SimpleTermIndexKey ret = new SimpleTermIndexKey(index);
-      if (index >= 0 && index < counts.length) {
+      if (index >= 0 && index < counts.length && acceptTerm(index)) {
         return ret;
       } else if (ascending) {
         return incrementKey(ret);
       } else {
         return decrementKey(ret);
       }
+    }
+
+    private boolean acceptTerm(int i) {
+      return counts[i].count >= mincount;
     }
 
   }
