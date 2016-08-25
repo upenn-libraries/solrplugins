@@ -2,7 +2,6 @@ package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
 import java.util.AbstractMap;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import org.apache.lucene.index.PostingsEnum;
@@ -21,22 +20,17 @@ import org.apache.solr.request.FacetPayload;
  * <lst name="subject_xfacet">
  *   <lst name="Hegelianism">
  *     <int name="count">3</int>
+ *     <str name="normalized">hegelianism</str>
  *     <str name="prefix"></str>
  *     <str name="filing">Hegelianism</str>
  *     <lst name="refs">
  *       <lst name="see_also">
- *         <long name="Georg Wilhelm Friedrich Hegel">1</long>
- *         <long name="History of Marxism">1</long>
- *       </lst>
- *     </lst>
- *   </lst>
- *   <lst name="Georg Wilhelm Friedrich Hegel">
- *     <int name="count">2</int>
- *     <str name="prefix">Georg Wilhelm Friedrich </str>
- *     <str name="filing">Hegel</str>
- *     <lst name="refs">
- *       <lst name="see_also">
- *         <long name="History of Marxism">1</long>
+ *         <lst name="Georg Wilhelm Friedrich Hegel">
+ *           <long name="count">1</int>
+ *           <str name="normalized">hegel</str>
+ *           <str name="prefix">Georg Wilhelm Friedrich </str>
+ *           <str name="filing">Hegel</str>
+ *         </lst>
  *       </lst>
  *     </lst>
  *   </lst>
@@ -47,27 +41,51 @@ import org.apache.solr.request.FacetPayload;
 public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Object>> {
   private static final String DELIM = "\u0000";
   private static final String KEY_REFS = "refs";
+  private static final String KEY_NORMALIZED = "normalized";
   private static final String KEY_PREFIX = "prefix";
   private static final String KEY_FILING = "filing";
 
+  /**
+   * overwrite entry in NamedList with new value
+   * (update existing key, or add the key/value if key doesn't already exist)
+   */
+  private static void overwriteInNamedList(NamedList<Object> namedList, String key, Object value) {
+    int indexOfKey = namedList.indexOf(key, 0);
+    if(indexOfKey != -1) {
+      namedList.setVal(indexOfKey, value);
+    } else {
+      namedList.add(key, value);
+    }
+  }
+
+  /**
+   * Copies a field value from one NamedList into another
+   */
+  private static void copyField(NamedList<Object> from, NamedList<Object> to, String key) {
+    int index = from.indexOf(key, 0);
+    if(index != -1) {
+      Object value = from.get(key);
+      int index2 = to.indexOf(key, 0);
+      if(index2 != -1) {
+        to.setVal(index2, value);
+      } else {
+        to.add(key, value);
+      }
+    }
+  }
+
   @Override
   public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
-    String[] parts = termKey.split(DELIM);
-    if(parts.length < 2) {
-      throw new IOException("Expected term '" + termKey + "' to split into at least 2 strings, but split resulted in " + parts.length + " strings instead");
-    }
-    String normalized = parts[0];
-    String filing = parts[1];
-    String prefix = "";
-    if(parts.length > 2) {
-      prefix = parts[2];
-    }
+    MultiPartString multiPartString = MultiPartString.parse(termKey);
 
     NamedList<Object> entry = buildEntryValue(count, postings);
-    entry.add(KEY_PREFIX, prefix);
-    entry.add(KEY_FILING, filing);
+    entry.add(KEY_NORMALIZED, multiPartString.getNormalized());
+    entry.add(KEY_FILING, multiPartString.getFiling());
+    if(multiPartString.getPrefix() != null) {
+      entry.add(KEY_PREFIX, multiPartString.getPrefix());
+    }
 
-    res.add(prefix + filing, entry);
+    res.add(multiPartString.getDisplay(), entry);
     return true;
   }
 
@@ -96,18 +114,33 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
             String referenceType = payloadStr.substring(0, pos);
             String target = payloadStr.substring(pos + 1);
 
-            NamedList<Object> targetCountPairs = (NamedList<Object>) entry.get(referenceType);
-            if(targetCountPairs == null) {
-              targetCountPairs = new NamedList<>();
-              refs.add(referenceType, targetCountPairs);
+            MultiPartString multiPartString = MultiPartString.parse(target);
+            String displayName = multiPartString.getDisplay();
+
+            NamedList<Object> displayNameStructs = (NamedList<Object>) entry.get(referenceType);
+            if(displayNameStructs == null) {
+              displayNameStructs = new NamedList<>();
+              refs.add(referenceType, displayNameStructs);
             }
 
-            int indexOfTarget = targetCountPairs.indexOf(target, 0);
-            if(indexOfTarget != -1) {
-              long oldCount = ((Number) targetCountPairs.getVal(indexOfTarget)).longValue();
-              targetCountPairs.setVal(indexOfTarget, oldCount + 1L);
+            NamedList<Object> nameStruct = (NamedList<Object>) displayNameStructs.get(displayName);
+            if(nameStruct == null) {
+              nameStruct = new NamedList<>();
+              displayNameStructs.add(displayName, nameStruct);
+            }
+
+            int indexOfCount = nameStruct.indexOf("count", 0);
+            if(indexOfCount != -1) {
+              long oldCount = ((Number) nameStruct.getVal(indexOfCount)).longValue();
+              nameStruct.setVal(indexOfCount, oldCount + 1L);
             } else {
-              targetCountPairs.add(target, 1L);
+              nameStruct.add("count", 1L);
+            }
+
+            overwriteInNamedList(nameStruct, "normalized", multiPartString.getNormalized());
+            overwriteInNamedList(nameStruct, "filing", multiPartString.getFiling());
+            if(multiPartString.getPrefix() != null) {
+              overwriteInNamedList(nameStruct, "prefix", multiPartString.getPrefix());
             }
           }
         }
@@ -145,39 +178,54 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
       while (refTypesIter.hasNext()) {
         Map.Entry<String, Object> entry = refTypesIter.next();
         String addReferenceType = entry.getKey();
-        NamedList<Object> addTargetCounts = (NamedList<Object>) entry.getValue();
+        NamedList<Object> addNameStructs = (NamedList<Object>) entry.getValue();
 
-        // if this referenceType doesn't exist in preExisting yet, create it
+        // if "refs" doesn't exist in preExisting yet, create it
         NamedList<Object> preExistingRefs = (NamedList<Object>) preExisting.get(KEY_REFS);
         if(preExistingRefs == null) {
           preExistingRefs = new NamedList<Object>();
           preExisting.add(KEY_REFS, preExistingRefs);
         }
-        NamedList<Object> existingTargetCounts = (NamedList<Object>) preExistingRefs.get(addReferenceType);
-        if (existingTargetCounts == null) {
-          existingTargetCounts = new NamedList<Object>();
+        // if referenceType doesn't exist in preExisting yet, create it
+        NamedList<Object> preExistingNameStructs = (NamedList<Object>) preExistingRefs.get(addReferenceType);
+        if (preExistingNameStructs == null) {
+          preExistingNameStructs = new NamedList<Object>();
         }
-        preExistingRefs.add(addReferenceType, existingTargetCounts);
+        preExistingRefs.add(addReferenceType, preExistingNameStructs);
 
-        // loop through target+count pairs, merge them into preExisting
-        Iterator<Map.Entry<String, Object>> addTargetCountsIter = addTargetCounts.iterator();
-        while (addTargetCountsIter.hasNext()) {
-          Map.Entry<String, Object> targetCountEntry = addTargetCountsIter.next();
-          String target = targetCountEntry.getKey();
-          Number addTargetCount = (Number) targetCountEntry.getValue();
+        // loop through names and merge them into preExisting
+        Iterator<Map.Entry<String, Object>> addNameStructsIter = addNameStructs.iterator();
+        while (addNameStructsIter.hasNext()) {
+          Map.Entry<String, Object> nameStructEntry = addNameStructsIter.next();
+          String name = nameStructEntry.getKey();
+          NamedList<Object> addNameStruct = (NamedList<Object>) nameStructEntry.getValue();
 
-          int index = existingTargetCounts.indexOf(target, 0);
-          long existingCount = 0;
-          Number existingCountNum = (Number) existingTargetCounts.get(target);
-          if (existingCountNum != null) {
-            existingCount = existingCountNum.longValue();
-          }
-          existingCount += addTargetCount.longValue();
+          // if name doesn't exist in preExisting yet, create it
+          int index = preExistingNameStructs.indexOf(name, 0);
+          NamedList<Object> preExistingNameStruct;
           if (index != -1) {
-            existingTargetCounts.setVal(index, existingCount);
+            preExistingNameStruct = (NamedList<Object>) preExistingNameStructs.getVal(index);
           } else {
-            existingTargetCounts.add(target, existingCount);
+            preExistingNameStruct = new NamedList<Object>();
+            preExistingNameStructs.add(name, preExistingNameStruct);
           }
+
+          // merge count
+          long existingCount = 0;
+          int indexOfCount = preExistingNameStruct.indexOf("count", 0);
+          if(indexOfCount != -1) {
+            existingCount = ((Number) preExistingNameStruct.get("count")).longValue();
+          }
+          long newCount = existingCount + ((Number) addNameStruct.get("count")).longValue();
+          if(indexOfCount != -1) {
+            preExistingNameStruct.setVal(indexOfCount, newCount);
+          } else {
+            preExistingNameStruct.add("count", newCount);
+          }
+
+          copyField(addNameStruct, preExistingNameStruct, "normalized");
+          copyField(addNameStruct, preExistingNameStruct, "filing");
+          copyField(addNameStruct, preExistingNameStruct, "prefix");
         }
       }
     }

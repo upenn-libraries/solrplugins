@@ -36,37 +36,37 @@ public class JsonReferencePayloadTokenizerTest {
     assertEquals("ref1", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(2, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref1", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref2", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(3, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref2", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref3", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(4, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref3", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "some value" + MultiPartString.DELIMITER + "some value", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertFalse(tokenizer.incrementToken());
   }
@@ -99,43 +99,43 @@ public class JsonReferencePayloadTokenizerTest {
     assertEquals("ref1", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(2, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref1", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("chicken", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(3, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("chicken", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("a ", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_PREFIX, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("use_for" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref3", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_NORMALIZED, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(4, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertTrue(tokenizer.incrementToken());
     assertEquals("ref3", tokenizer.getAttribute(CharTermAttribute.class).toString());
     assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
     assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
-    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "the unconsoled", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
+    assertEquals("see_also" + JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR + "unconsoled" + MultiPartString.DELIMITER + "unconsoled" + MultiPartString.DELIMITER + "the ", tokenizer.getAttribute(PayloadAttribute.class).getPayload().utf8ToString());
 
     assertFalse(tokenizer.incrementToken());
   }
