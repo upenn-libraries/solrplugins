@@ -70,6 +70,10 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
   @Test
   public void testNegativeOffset() throws IOException {
     runTest(1, 1, -1, -1, 2);
+    runTest(oddCounts, 1, 1, -1, -1, 3);
+    runTest(oddCounts, 1, 0, -1, -1, 3);
+    runTest(evenCounts, 1, 2, -1, -1, 4);
+    runTest(evenCounts, 1, 1, -1, -1, 4);
   }
   
   @Test
@@ -80,11 +84,18 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
   @Test
   public void testPositiveOffset() throws IOException {
     runTest(1, 1, 1, 1, 0);
+    runTest(oddCounts, 1, 3, 1, 1, 1);
+    runTest(oddCounts, 1, 2, 1, 1, 1);
+    runTest(evenCounts, 1, 2, 1, 1, 0);
+    runTest(evenCounts, 1, 1, 1, 1, 0);
   }
   
   @Test
   public void testLargePositiveOffset() throws IOException {
     runTest(1, 1, 2, 1, 0);
+    runTest(oddCounts, 1, 5, 2, 2, 1);
+    runTest(evenCounts, 1, 4, 2, 2, 0);
+    runTest(evenCounts, 1, 3, 2, 2, 0);
   }
   
   @Test
