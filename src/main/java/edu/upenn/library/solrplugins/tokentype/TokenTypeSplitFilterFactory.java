@@ -68,10 +68,6 @@ public class TokenTypeSplitFilterFactory extends TokenFilterFactory implements R
       case 0:
         subargs = Collections.EMPTY_MAP;
         break;
-      case 1:
-        Entry<String, String> e = sub.entrySet().iterator().next();
-        subargs = Collections.singletonMap(e.getKey(), e.getValue());
-        break;
       default:
         subargs = sub;
     }
