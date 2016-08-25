@@ -27,8 +27,8 @@ import org.apache.solr.common.util.NamedList;
  */
 public interface FacetPayload<T> {
   long extractCount(T val);
-  boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList<T> res) throws IOException;
-  Entry<String, T> addEntry(String termKey, int count, PostingsEnum postings) throws IOException;
+  boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<T> res) throws IOException;
+  Entry<String, T> addEntry(String termKey, long count, PostingsEnum postings) throws IOException;
   T mergePayload(T preExisting, T add, long preExistingCount, long addCount);
   Object updateValueExternalRepresentation(T internal);
 }

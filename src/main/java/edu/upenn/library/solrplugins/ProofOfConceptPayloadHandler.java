@@ -30,17 +30,17 @@ import org.apache.solr.request.FacetPayload;
 public class ProofOfConceptPayloadHandler implements FacetPayload<NamedList<Object>> {
 
   @Override
-  public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
     res.add(termKey, buildEntryValue(count, postings));
     return true;
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
     return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings));
   }
 
-  private NamedList<Object> buildEntryValue(int count, PostingsEnum postings) throws IOException {
+  private NamedList<Object> buildEntryValue(long count, PostingsEnum postings) throws IOException {
     NamedList<Object> entry = new NamedList<>();
     entry.add("count", count);
     int i = -1;
