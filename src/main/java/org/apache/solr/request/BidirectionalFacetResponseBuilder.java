@@ -121,7 +121,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
     private AscendingFacetTermIterator(Provisional provisionalInit, LimitMinder limitMinder, int actualOffsetInit, int off, int lim,
         K descentStartIdx, Env<T, K> env, OuterIteratorFactory<T, K> next) {
-      super(limitMinder, actualOffsetInit, provisionalInit, off, lim, env);
+      super(limitMinder, actualOffsetInit + 1, provisionalInit, off, lim, env);
       this.descentStartIdx = descentStartIdx;
       this.next = next;
     }
@@ -147,7 +147,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     @Override
     public FacetResultIterator<T> initialInstance(Env<T, K> env, InnerIteratorFactory<T, K> inner, OuterIteratorFactory<T, K> outer) throws IOException {
       boolean finalDescent = false;
-      int actualOffsetInit = 0;
+      int actualOffsetInit = 1;
       K startIndex = env.decrementKey(env.targetKey());
       LimitMinder<T, K> limitMinder = new DecrementingLimitMinder(startIndex);
       int off;
@@ -183,7 +183,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
     private DescendingFacetTermIterator(LimitMinder<T, K> limitMinder, int actualOffsetInit, Provisional provisionalInit, int off, int lim, Env<T, K> env,
         boolean finalDescent, InnerIteratorFactory<T, K> inner, OuterIteratorFactory<T, K> outer) {
-      super(limitMinder, actualOffsetInit, provisionalInit, off, lim, env);
+      super(limitMinder, actualOffsetInit - 1, provisionalInit, off, lim, env);
       this.finalDescent = finalDescent;
       this.inner = inner;
       this.outer = outer;
@@ -231,7 +231,12 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     @Override
     public boolean init() {
-      return (facetKey = limitMinder.startKey()) != null;
+      if ((facetKey = limitMinder.startKey()) != null) {
+        adjustOffset();
+        return true;
+      } else {
+        return false;
+      }
     }
     
     @Override
