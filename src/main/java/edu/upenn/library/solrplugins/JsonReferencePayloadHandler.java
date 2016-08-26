@@ -40,6 +40,7 @@ import org.apache.solr.request.FacetPayload;
  */
 public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Object>> {
   private static final String DELIM = "\u0000";
+  private static final String KEY_SELF = "self";
   private static final String KEY_REFS = "refs";
   private static final String KEY_PREFIX = "prefix";
   private static final String KEY_FILING = "filing";
@@ -103,6 +104,21 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     }
   }
 
+  /**
+   * Updates the Long value for the specified key in the 'preExisting' NamedList
+   * by adding the value from the 'add' NamedList.
+   */
+  private static void mergeCount(NamedList<Object> preExisting, NamedList<Object> add, String key) {
+    // merge count
+    long existingCount = 0;
+    int indexOfCount = preExisting.indexOf(key, 0);
+    if(indexOfCount != -1) {
+      existingCount = ((Number) preExisting.get(key)).longValue();
+    }
+    long newCount = existingCount + ((Number) add.get(key)).longValue();
+    overwriteInNamedList(preExisting, key, newCount);
+  }
+
   @Override
   public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
@@ -126,7 +142,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     entry.add(KEY_COUNT, count);
 
     NamedList<Object> self = new NamedList<>();
-    entry.add("self", self);
+    entry.add(KEY_SELF, self);
 
     self.add(KEY_COUNT, 0L);
     overwriteInNamedList(self, KEY_FILING, term.getFiling());
@@ -194,6 +210,17 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     long preCount = ((Number)preExisting.getVal(countIndex)).longValue();
     preExisting.setVal(countIndex, preCount + addCount);
 
+    if(add.get(KEY_SELF) != null) {
+      NamedList<Object> addSelf = (NamedList<Object>) add.get(KEY_SELF);
+
+      NamedList<Object> preExistingSelf = getOrCreateNamedListValue(preExisting, KEY_SELF);
+
+      mergeCount(preExistingSelf, addSelf, KEY_COUNT);
+
+      copyFieldInNamedList(preExistingSelf, addSelf, KEY_FILING);
+      copyFieldInNamedList(preExistingSelf, addSelf, KEY_PREFIX);
+    }
+
     if(add.get(KEY_REFS) != null) {
       NamedList<Object> addRefs = (NamedList<Object>) add.get(KEY_REFS);
       Iterator<Map.Entry<String, Object>> refTypesIter = addRefs.iterator();
@@ -218,18 +245,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
           // if name doesn't exist in preExisting yet, create it
           NamedList<Object> preExistingNameStruct = getOrCreateNamedListValue(preExistingNameStructs, name);
 
-          // merge count
-          long existingCount = 0;
-          int indexOfCount = preExistingNameStruct.indexOf(KEY_COUNT, 0);
-          if(indexOfCount != -1) {
-            existingCount = ((Number) preExistingNameStruct.get(KEY_COUNT)).longValue();
-          }
-          long newCount = existingCount + ((Number) addNameStruct.get(KEY_COUNT)).longValue();
-          if(indexOfCount != -1) {
-            preExistingNameStruct.setVal(indexOfCount, newCount);
-          } else {
-            preExistingNameStruct.add(KEY_COUNT, newCount);
-          }
+          mergeCount(preExistingNameStruct, addNameStruct, KEY_COUNT);
 
           copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_FILING);
           copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_PREFIX);

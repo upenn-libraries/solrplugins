@@ -27,9 +27,14 @@ public class JsonReferencePayloadHandlerTest {
     NamedList<Object> preRefs = new NamedList<>();
     preRefs.add("use_for", preUseForNameStructs);
 
+    NamedList<Object> preSelf = new NamedList<>();
+    preSelf.add("count", 4L);
+    preSelf.add("filing", "Hegel");
+
     NamedList<Object> preExisting = new NamedList<>();
-    preExisting.add("count", 10L);
+    preExisting.add("count", 9L);
     preExisting.add("refs", preRefs);
+    preExisting.add("self", preSelf);
 
     // build data for record to add/merge
 
@@ -58,17 +63,26 @@ public class JsonReferencePayloadHandlerTest {
     addRefs.add("use_for", addUseForNameStructs);
     addRefs.add("see_also", addSeeAlsoNameStructs);
 
+    NamedList<Object> addSelf = new NamedList<>();
+    addSelf.add("count", 3L);
+    addSelf.add("filing", "Hegel");
+
     NamedList<Object> add = new NamedList<>();
-    add.add("count", 4L);
+    add.add("count", 12L);
     add.add("refs", addRefs);
+    add.add("self", addSelf);
 
     // test merge
 
     JsonReferencePayloadHandler handler = new JsonReferencePayloadHandler();
 
-    NamedList<Object> result = (NamedList<Object>) handler.mergePayload(preExisting, add, 10L, 4L);
+    NamedList<Object> result = (NamedList<Object>) handler.mergePayload(preExisting, add, 9L, 12L);
 
-    assertEquals(14L, result.get("count"));
+    assertEquals(21L, result.get("count"));
+
+    NamedList<Object> self = (NamedList<Object>) result.get("self");
+    assertEquals(7L, self.get("count"));
+    assertEquals("Hegel", self.get("filing"));
 
     NamedList<Object> mergedRefs = (NamedList<Object>) result.get("refs");
     NamedList<Object> useForNameStructs = (NamedList<Object>) mergedRefs.get("use_for");
