@@ -64,13 +64,7 @@ public class TokenTypeSplitFilterFactory extends TokenFilterFactory implements R
         sub.put(e.getKey().substring(1), e.getValue());
       }
     }
-    switch (sub.size()) {
-      case 0:
-        subargs = Collections.EMPTY_MAP;
-        break;
-      default:
-        subargs = sub;
-    }
+    subargs = sub;
   }
 
   private static Set<String> parseTypeNames(String typeNames) {
