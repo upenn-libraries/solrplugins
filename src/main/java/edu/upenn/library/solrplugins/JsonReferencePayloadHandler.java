@@ -20,8 +20,10 @@ import org.apache.solr.request.FacetPayload;
  * <lst name="subject_xfacet">
  *   <lst name="Hegelianism">
  *     <int name="count">3</int>
- *     <str name="prefix"></str>
- *     <str name="filing">Hegelianism</str>
+ *     <lst name="self">
+ *       <long name="count">2</long>
+ *       <str name="filing">Hegelianism</str>
+ *     </lst>
  *     <lst name="refs">
  *       <lst name="see_also">
  *         <lst name="Georg Wilhelm Friedrich Hegel">
