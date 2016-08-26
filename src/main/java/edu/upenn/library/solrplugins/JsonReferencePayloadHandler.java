@@ -108,15 +108,15 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
    * Updates the Long value for the specified key in the 'preExisting' NamedList
    * by adding the value from the 'add' NamedList.
    */
-  private static void mergeCount(NamedList<Object> preExisting, NamedList<Object> add, String key) {
+  private static void mergeCount(NamedList<Object> from, NamedList<Object> to, String key) {
     // merge count
     long existingCount = 0;
-    int indexOfCount = preExisting.indexOf(key, 0);
+    int indexOfCount = to.indexOf(key, 0);
     if(indexOfCount != -1) {
-      existingCount = ((Number) preExisting.get(key)).longValue();
+      existingCount = ((Number) to.get(key)).longValue();
     }
-    long newCount = existingCount + ((Number) add.get(key)).longValue();
-    overwriteInNamedList(preExisting, key, newCount);
+    long newCount = existingCount + ((Number) from.get(key)).longValue();
+    overwriteInNamedList(to, key, newCount);
   }
 
   @Override
@@ -215,10 +215,10 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
       NamedList<Object> preExistingSelf = getOrCreateNamedListValue(preExisting, KEY_SELF);
 
-      mergeCount(preExistingSelf, addSelf, KEY_COUNT);
+      mergeCount(addSelf, preExistingSelf, KEY_COUNT);
 
-      copyFieldInNamedList(preExistingSelf, addSelf, KEY_FILING);
-      copyFieldInNamedList(preExistingSelf, addSelf, KEY_PREFIX);
+      copyFieldInNamedList(addSelf, preExistingSelf, KEY_FILING);
+      copyFieldInNamedList(addSelf, preExistingSelf, KEY_PREFIX);
     }
 
     if(add.get(KEY_REFS) != null) {
@@ -245,7 +245,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
           // if name doesn't exist in preExisting yet, create it
           NamedList<Object> preExistingNameStruct = getOrCreateNamedListValue(preExistingNameStructs, name);
 
-          mergeCount(preExistingNameStruct, addNameStruct, KEY_COUNT);
+          mergeCount(addNameStruct, preExistingNameStruct, KEY_COUNT);
 
           copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_FILING);
           copyFieldInNamedList(addNameStruct, preExistingNameStruct, KEY_PREFIX);
