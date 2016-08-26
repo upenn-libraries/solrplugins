@@ -215,12 +215,12 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
     return payloadHandler.addEntry(termKey, count, postings, res);
   }
 
   @Override
-  public Entry<String, Object> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+  public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
     return payloadHandler.addEntry(termKey, count, postings);
   }
 
@@ -242,12 +242,12 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private static class DefaultPayloadHandler implements FacetPayload<Void> {
 
     @Override
-    public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList<Void> res) throws IOException {
+    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Void> res) throws IOException {
       return false;
     }
 
     @Override
-    public Entry<String, Void> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+    public Entry<String, Void> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
       return null;
     }
 

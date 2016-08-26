@@ -102,7 +102,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   }
 
   @Override
-  public boolean addEntry(String termKey, int count, PostingsEnum postings, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
 
     NamedList<Object> entry = buildEntryValue(term, count, postings);
@@ -112,12 +112,12 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, int count, PostingsEnum postings) throws IOException {
+  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
     return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, postings));
   }
 
-  private NamedList<Object> buildEntryValue(MultiPartString term, int count, PostingsEnum postings) throws IOException {
+  private NamedList<Object> buildEntryValue(MultiPartString term, long count, PostingsEnum postings) throws IOException {
     NamedList<Object> entry = new NamedList<>();
 
     // document count for this term
