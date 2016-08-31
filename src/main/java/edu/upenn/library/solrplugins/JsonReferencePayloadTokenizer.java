@@ -210,4 +210,13 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
     return false;
   }
 
+  @Override
+  public void reset() throws IOException {
+    super.reset();
+    consumed = false;
+    parser = null;
+    tokens.clear();
+    tokensIter = null;
+  }
+
 }
