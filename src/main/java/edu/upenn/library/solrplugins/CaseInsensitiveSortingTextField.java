@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
@@ -49,6 +50,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private static final String SERIALIZER_ARGNAME = "serializer";
   private static final String DISPLAYIZER_ARGNAME = "displayizer";
   private static final String PAYLOAD_HANDLER_ARGNAME = "payloadHandler";
+  private static final String DOC_PAYLOAD_HANDLER_ARGNAME = "docPayloadHandler";
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final char DELIM_CHAR = '\u0000';
   private static final int DEFAULT_HIERARCHY_LEVEL = 0;
@@ -239,30 +241,30 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
     return payloadHandler.updateValueExternalRepresentation(internal);
   }
 
-  private static class DefaultPayloadHandler implements FacetPayload<Void> {
+  private static class DefaultPayloadHandler implements FacetPayload<Object> {
 
     @Override
-    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Void> res) throws IOException {
+    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Object> res) throws IOException {
       return false;
     }
 
     @Override
-    public Entry<String, Void> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
+    public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
       return null;
     }
 
     @Override
-    public Void mergePayload(Void preExisting, Void add, long preExistingCount, long addCount) {
+    public Object mergePayload(Object preExisting, Object add, long preExistingCount, long addCount) {
       return null;
     }
 
     @Override
-    public long extractCount(Void val) {
-      throw new UnsupportedOperationException("Not supported; misconfiguration; this should never happen.");
+    public long extractCount(Object val) {
+      return 1L; // for document-centric results only.
     }
 
     @Override
-    public Object updateValueExternalRepresentation(Void internal) {
+    public Object updateValueExternalRepresentation(Object internal) {
       return null;
     }
 

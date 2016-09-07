@@ -1178,7 +1178,8 @@ public class FacetComponent extends SearchComponent {
       } else {
         // index order with target/offset
         int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
-        Env env = new DistribEnv(dff.offset, dff.limit, targetIdx, dff.targetDoc,
+        System.err.println("XXX "+dff.offset+", "+dff.limit+", "+counts.length+", "+targetIdx+", "+dff.target.indexed);
+        Env env = new DistribEnv(dff.offset, dff.limit, targetIdx,
             dff.minCount, dff.field, dff.ftype, fieldCounts, counts);
         try {
           termVals = BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),

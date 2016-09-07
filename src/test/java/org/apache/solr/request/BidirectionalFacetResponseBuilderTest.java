@@ -136,7 +136,7 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     T ft = null;
     NamedList exp = buildExpected(expectedOffset, expectedIndices);
     NamedList actual = new NamedList(3);
-    Env<T, SimpleTermIndexKey> env = new TestEnv<>(requestedOffset, limit, targetIdx, targetDoc, mincount, fieldName, ft, actual, counts);
+    Env<T, SimpleTermIndexKey> env = new TestEnv<>(requestedOffset, limit, targetIdx, mincount, fieldName, ft, actual, counts);
     BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
               new AscendingFacetTermIteratorFactory());
     assertEquals(actual.get("count"), ((NamedList)actual.get("terms")).size());
@@ -161,8 +161,8 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
 
     private final int[] counts;
     
-    public TestEnv(int offset, int limit, int targetIdx, String targetDoc, int mincount, String fieldName, T ft, NamedList res, int[] counts) {
-      super(offset, limit, targetIdx, targetDoc, mincount, fieldName, ft, res);
+    public TestEnv(int offset, int limit, int targetIdx, int mincount, String fieldName, T ft, NamedList res, int[] counts) {
+      super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       this.counts = counts;
     }
     

@@ -362,41 +362,47 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
   }
   
-  public static class SimpleTermIndexKey implements FacetKey<SimpleTermIndexKey> {
+  public static class BaseTermIndexKey<K extends BaseTermIndexKey<K>> implements FacetKey<K> {
 
     public final int index;
     
-    public SimpleTermIndexKey(int index) {
+    public BaseTermIndexKey(int index) {
       this.index = index;
     }
     
     @Override
-    public int compareTo(SimpleTermIndexKey o) {
+    public int compareTo(BaseTermIndexKey o) {
       return Integer.compare(index, o.index);
     }
 
     @Override
     public String toString() {
-      return SimpleTermIndexKey.class.getSimpleName() + "(index=" + index + ')';
+      return BaseTermIndexKey.class.getSimpleName() + "(index=" + index + ')';
     }
 
   }
   
+  public static class SimpleTermIndexKey extends BaseTermIndexKey<SimpleTermIndexKey> {
+
+    public SimpleTermIndexKey(int index) {
+      super(index);
+    }
+
+  }
+
   public static abstract class Env<T extends FieldType & FacetPayload, K extends FacetKey<K>> {
     public final int offset;
     public final int limit;
     public final int targetIdx;
-    public final String targetDoc;
     public final int mincount;
     public final String fieldName;
     public final T ft;
     public final NamedList res;
 
-    public Env(int offset, int limit, int targetIdx, String targetDoc, int mincount, String fieldName, T ft, NamedList res) {
+    public Env(int offset, int limit, int targetIdx, int mincount, String fieldName, T ft, NamedList res) {
       this.offset = offset;
       this.limit = limit;
       this.targetIdx = targetIdx;
-      this.targetDoc = targetDoc;
       this.mincount = mincount;
       this.fieldName = fieldName;
       this.ft = ft;
@@ -419,9 +425,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     private final ShardFacetCount[] counts;
 
-    public DistribEnv(int offset, int limit, int targetIdx, String targetDoc, int mincount, String fieldName, T ft,
+    public DistribEnv(int offset, int limit, int targetIdx, int mincount, String fieldName, T ft,
         NamedList res, ShardFacetCount[] counts) {
-      super(offset, limit, targetIdx, targetDoc, mincount, fieldName, ft, res);
+      super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       this.counts = counts;
     }
 
@@ -506,10 +512,10 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     protected BytesRef currentTermBytes;
     protected String currentTerm;
     
-    public LocalEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms, String contains,
+    public LocalEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
-      super(offset, limit, targetIdx, targetDoc, mincount, fieldName, ft, res);
+      super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       this.startTermIndex = startTermIndex;
       this.adjust = adjust;
       this.nTerms = nTerms;
@@ -544,37 +550,78 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     }
   }
     
-  public static final class LocalTermEnv<T extends FieldType & FacetPayload> extends LocalEnv<T, SimpleTermIndexKey> {
+  public static abstract class BaseLocalTermEnv<T extends FieldType & FacetPayload, K extends FacetKey<K>> extends LocalEnv<T, K> {
+
+    public BaseLocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
+        boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
+        SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
+      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
+          charsRef, extend, si, searcher, fieldName, ft, res);
+    }
+
+    protected final int incrementTermIndex(int lastKeyIndex) {
+      for (int i = lastKeyIndex + 1; i < nTerms; i++) {
+        if (acceptTerm(i)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    protected final int decrementTermIndex(int lastKeyIndex) {
+      for (int i = lastKeyIndex - 1; i >= adjust; i--) {
+        if (acceptTerm(i)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    protected final int getTargetKeyIndex() {
+      return (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
+    }
+
+    protected final int getTargetKeyIndexInit(boolean ascending) {
+      int index = getTargetKeyIndex();
+      if (index >= adjust && index < nTerms && acceptTerm(index)) {
+        return index;
+      } else if (ascending) {
+        return incrementTermIndex(index);
+      } else {
+        return decrementTermIndex(index);
+      }
+    }
+  }
+
+  public static final class LocalTermEnv<T extends FieldType & FacetPayload> extends BaseLocalTermEnv<T, SimpleTermIndexKey> {
 
     private SimpleTermIndexKey facetKey;
 
-    public LocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms, String contains,
+    public LocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
-      super(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains, ignoreCase, mincount, counts,
+      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
           charsRef, extend, si, searcher, fieldName, ft, res);
     }
-    
+
     @Override
     public SimpleTermIndexKey incrementKey(SimpleTermIndexKey lastKey) {
-      for (int i = lastKey.index + 1; i < nTerms; i++) {
-        if (acceptTerm(i)) {
-          facetKey = new SimpleTermIndexKey(i);
-          return facetKey;
-        }
+      int nextKeyIndex = incrementTermIndex(lastKey.index);
+      if (nextKeyIndex < 0) {
+        return null;
+      } else {
+        return facetKey = new SimpleTermIndexKey(nextKeyIndex);
       }
-      return null;
     }
 
     @Override
     public SimpleTermIndexKey decrementKey(SimpleTermIndexKey lastKey) {
-      for (int i = lastKey.index - 1; i >= adjust; i--) {
-        if (acceptTerm(i)) {
-          facetKey = new SimpleTermIndexKey(i);
-          return facetKey;
-        }
+      int nextKeyIndex = decrementTermIndex(lastKey.index);
+      if (nextKeyIndex < 0) {
+        return null;
+      } else {
+        return facetKey = new SimpleTermIndexKey(nextKeyIndex);
       }
-      return null;
     }
 
     @Override
@@ -596,19 +643,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     @Override
     public SimpleTermIndexKey targetKey() throws IOException {
-      return facetKey = new SimpleTermIndexKey((targetIdx < 0 ? ~targetIdx : targetIdx) + adjust);
+      return new SimpleTermIndexKey(getTargetKeyIndex());
     }
 
     @Override
     public SimpleTermIndexKey targetKeyInit(boolean ascending) throws IOException {
-      int index = (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
-      SimpleTermIndexKey ret = new SimpleTermIndexKey(index);
-      if (index >= adjust && index < nTerms && acceptTerm(index)) {
-        return facetKey = ret;
-      } else if (ascending) {
-        return incrementKey(ret);
+      int index = getTargetKeyIndexInit(ascending);
+      if (index < 0) {
+        return null;
       } else {
-        return decrementKey(ret);
+        return facetKey = new SimpleTermIndexKey(index);
       }
     }
 
