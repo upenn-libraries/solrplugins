@@ -219,6 +219,11 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
       return counts[i] >= mincount;
     }
 
+    @Override
+    public void initState(SimpleTermIndexKey key) {
+      // stub
+    }
+
   }
   
 }

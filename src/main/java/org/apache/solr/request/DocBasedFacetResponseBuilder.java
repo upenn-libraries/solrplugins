@@ -61,7 +61,7 @@ public class DocBasedFacetResponseBuilder {
 
     @Override
     public String toString() {
-      return TermDocIndexKey.class.getSimpleName() + "(index=" + index + ", docId=" + docId + ')';
+      return TermDocIndexKey.class.getSimpleName() + "(index=" + index + ", docId=" + LocalDocEnv.brToString(docId) + ')';
     }
     
   }
@@ -135,10 +135,13 @@ public class DocBasedFacetResponseBuilder {
     }
     
     private int docIndex(BytesRef docId) {
-      if (localDocIndex >= 0 && localDocIndex < docIds.length && docId.bytesEquals(docIds[localDocIndex])) {
+      if (docId == null) {
+        return 0;
+      } else if (localDocIndex >= 0 && localDocIndex < docIds.length && docId.bytesEquals(docIds[localDocIndex])) {
         return localDocIndex;
+      } else {
+        return Arrays.binarySearch(docIds, docId, idFieldComparator);
       }
-      return Arrays.binarySearch(docIds, docId, idFieldComparator);
     }
     
     private BytesRef incrementDocId(int termIndex, BytesRef lastDocId) {
@@ -175,9 +178,8 @@ public class DocBasedFacetResponseBuilder {
             return termDocIndexKey = new TermDocIndexKey(termIndex, docId);
           }
         }
-        docId = new BytesRef(BytesRef.EMPTY_BYTES);
       } while ((termIndex = incrementTermIndex(termIndex)) >= 0);
-      return null;
+      return termDocIndexKey = null;
     }
     
     private BytesRef decrementDocId(int termIndex, BytesRef lastDocId) {
@@ -186,13 +188,24 @@ public class DocBasedFacetResponseBuilder {
           return null;
         }
       }
-      int nextDocIndex = docIndex(lastDocId) - 1;
+      int lastDocIndex = docIndex(lastDocId);
+      int nextDocIndex = (lastDocIndex < 0 ? ~lastDocIndex : lastDocIndex) - 1;
       if (nextDocIndex >= 0) {
         localDocIndex = nextDocIndex;
         return docIds[nextDocIndex];
       } else {
         localDocIndex = -1;
         return null;
+      }
+    }
+
+    static String brToString(BytesRef br) {
+      if (br == null) {
+        return "null";
+      } else if (UnicodeUtil.BIG_TERM.bytesEquals(br)) {
+        return "[UnicodeUtil.BIG_TERM]";
+      } else {
+        return br.utf8ToString();
       }
     }
 
@@ -210,7 +223,7 @@ public class DocBasedFacetResponseBuilder {
         }
         docId = UnicodeUtil.BIG_TERM;
       } while ((termIndex = decrementTermIndex(termIndex)) >= 0);
-      return null;
+      return termDocIndexKey = null;
     }
 
     @Override
@@ -218,7 +231,7 @@ public class DocBasedFacetResponseBuilder {
       if (termDocIndexKey != facetKey) {
         throw new IllegalStateException();
       }
-      String termDocTerm = currentTerm + '\u0000' + facetKey.docId.utf8ToString();
+      String termDocTerm = currentTerm + this.ftDelim + facetKey.docId.utf8ToString();
       Entry<String, Object> entry = new SimpleImmutableEntry<>(termDocTerm, documents[localDocIndex]);
       limitMinder.addEntry(entry, entryBuilder);
     }
@@ -239,7 +252,7 @@ public class DocBasedFacetResponseBuilder {
       if (rawTargetIdx < termIndex) {
         initTargetDoc = UnicodeUtil.BIG_TERM;
       } else if (rawTargetIdx > termIndex) {
-        initTargetDoc = new BytesRef(BytesRef.EMPTY_BYTES);
+        initTargetDoc = null;
       }
       TermDocIndexKey ret = new TermDocIndexKey(termIndex, initTargetDoc);
       int docIndex = acceptDoc(termIndex, initTargetDoc);
@@ -250,6 +263,24 @@ public class DocBasedFacetResponseBuilder {
         return incrementKey(ret);
       } else {
         return decrementKey(ret);
+      }
+    }
+
+    @Override
+    public void initState(TermDocIndexKey key) {
+      if (termDocIndexKey != key) {
+        int termIndex = key.index;
+        BytesRef docId = key.docId;
+        if (!initTermIndex(termIndex)) {
+          throw new IllegalStateException();
+        }
+        int docIndex = acceptDoc(termIndex, docId);
+        if (docIndex >= 0) {
+          localDocIndex = docIndex;
+          termDocIndexKey = key;
+        } else {
+          throw new IllegalStateException();
+        }
       }
     }
 

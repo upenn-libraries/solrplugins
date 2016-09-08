@@ -232,6 +232,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     @Override
     public boolean init() {
       if ((facetKey = limitMinder.startKey()) != null) {
+        env.initState(facetKey);
         adjustOffset();
         return true;
       } else {
@@ -397,6 +398,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public final int mincount;
     public final String fieldName;
     public final T ft;
+    public final String ftDelim;
     public final NamedList res;
 
     public Env(int offset, int limit, int targetIdx, int mincount, String fieldName, T ft, NamedList res) {
@@ -406,6 +408,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       this.mincount = mincount;
       this.fieldName = fieldName;
       this.ft = ft;
+      if (ft instanceof MultiSerializable) {
+        ftDelim = ((MultiSerializable)ft).getDelim();
+      } else {
+        ftDelim = "\u0000";
+      }
       this.res = res;
     }
     
@@ -418,6 +425,8 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public abstract K targetKey() throws IOException;
 
     public abstract K targetKeyInit(boolean ascending) throws IOException;
+
+    public abstract void initState(K key);
 
   }
   
@@ -491,6 +500,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     private boolean acceptTerm(int i) {
       return counts[i].count >= mincount;
+    }
+
+    @Override
+    public void initState(SimpleTermIndexKey key) {
+      // stub ... no action necessary.
     }
 
   }
@@ -654,6 +668,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       } else {
         return facetKey = new SimpleTermIndexKey(index);
       }
+    }
+
+    @Override
+    public void initState(SimpleTermIndexKey key) {
+      // stub ... no action necessary?
     }
 
   }

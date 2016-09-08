@@ -1178,7 +1178,6 @@ public class FacetComponent extends SearchComponent {
       } else {
         // index order with target/offset
         int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
-        System.err.println("XXX "+dff.offset+", "+dff.limit+", "+counts.length+", "+targetIdx+", "+dff.target.indexed);
         Env env = new DistribEnv(dff.offset, dff.limit, targetIdx,
             dff.minCount, dff.field, dff.ftype, fieldCounts, counts);
         try {
@@ -1454,10 +1453,16 @@ public class FacetComponent extends SearchComponent {
         this.sort = FacetParams.FACET_SORT_INDEX;
       }
       this.prefix = params.getFieldParam(field, FacetParams.FACET_PREFIX);
+      this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
       String rawTarget = params.getFieldParam(field, FacetParams.FACET_TARGET);
       if (rawTarget != null) {
         this.target = new ShardFacetCount();
-        boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
+        boolean targetStrict;
+        if (this.targetDoc != null) {
+          targetStrict = true;
+        } else {
+          targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
+        }
         if (ftype instanceof MultiSerializable) {
           try {
             this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field).utf8ToString();
@@ -1468,7 +1473,9 @@ public class FacetComponent extends SearchComponent {
           this.target.indexed = rawTarget;
         }
       }
-      this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
+      if (this.targetDoc != null) {
+        this.target.indexed = this.target.indexed.concat(this.targetDoc);
+      }
       this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
     }
   }

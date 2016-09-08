@@ -50,7 +50,6 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private static final String SERIALIZER_ARGNAME = "serializer";
   private static final String DISPLAYIZER_ARGNAME = "displayizer";
   private static final String PAYLOAD_HANDLER_ARGNAME = "payloadHandler";
-  private static final String DOC_PAYLOAD_HANDLER_ARGNAME = "docPayloadHandler";
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final char DELIM_CHAR = '\u0000';
   private static final int DEFAULT_HIERARCHY_LEVEL = 0;
@@ -91,8 +90,13 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
+  public String getDelim() {
+    return delim;
+  }
+
+  @Override
   public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException {
-    TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, new StringReader(val));
+    TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, val);
     try {
       ts.reset();
       CharTermAttribute termAtt = ts.getAttribute(CharTermAttribute.class);
