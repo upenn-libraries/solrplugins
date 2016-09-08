@@ -161,6 +161,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
 
   @Override
   public void reset() throws IOException {
+    exhausted = false;
     primed = false;
     increment = 0;
     state = null;
