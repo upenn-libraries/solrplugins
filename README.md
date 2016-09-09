@@ -69,6 +69,9 @@ You'll need to set up a fieldType definition in the schema.xml file:
 <fieldType name="xfacet" class="edu.upenn.library.solrplugins.CaseInsensitiveSortingTextField" payloadHandler="edu.upenn.library.solrplugins.JsonReferencePayloadHandler" sortMissingLast="true" omitNorms="true">
   <analyzer>
     <tokenizer class="edu.upenn.library.solrplugins.JsonReferencePayloadTokenizerFactory"/>
+    <!-- use SplitFilter to create 'normalized' token based on 'filing' token -->
+    <filter class="edu.upenn.library.solrplugins.tokentype.TokenTypeSplitFilterFactory" includeTypes="filing" outputType="normalized" _class="org.apache.lucene.analysis.icu.ICUFoldingFilterFactory" />
+    <filter class="edu.upenn.library.solrplugins.tokentype.TokenTypeJoinFilterFactory" inputTypes="normalized,filing,prefix" outputType="combined" typeForPayload="normalized" />
   </analyzer>
 </fieldType>
 ```
