@@ -34,10 +34,12 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.lucene.util.UnicodeUtil;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.BaseLocalTermEnv;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.BaseTermIndexKey;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.LimitMinder;
+import org.apache.solr.response.DocsStreamer;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.SchemaField;
 import org.apache.solr.search.DocList;
@@ -49,11 +51,11 @@ import org.apache.solr.search.SolrIndexSearcher;
  * @author magibney
  */
 public class DocBasedFacetResponseBuilder {
-  
+
   public static class TermDocIndexKey extends BaseTermIndexKey<TermDocIndexKey> {
 
     public final BytesRef docId;
-    
+
     public TermDocIndexKey(int index, BytesRef docId) {
       super(index);
       this.docId = docId;
@@ -63,9 +65,9 @@ public class DocBasedFacetResponseBuilder {
     public String toString() {
       return TermDocIndexKey.class.getSimpleName() + "(index=" + index + ", docId=" + LocalDocEnv.brToString(docId) + ')';
     }
-    
+
   }
-  
+
   public static class LocalDocEnv<T extends FieldType & FacetPayload> extends BaseLocalTermEnv<T, TermDocIndexKey> {
 
     private final BytesRef targetDoc;
@@ -74,13 +76,13 @@ public class DocBasedFacetResponseBuilder {
     private final SortField sortField;
     private final Comparator<BytesRef> idFieldComparator;
     private final String idField;
-    
+
     private TermDocIndexKey termDocIndexKey;
-    
+
     private int activeTermIndex = -1;
     private Document[] documents = null;
     private BytesRef[] docIds = null;
-    
+
     private int localDocIndex = -1;
 
     public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms,
@@ -96,7 +98,7 @@ public class DocBasedFacetResponseBuilder {
       this.sort = new Sort(sortField);
       this.docs = docs;
     }
-    
+
     private boolean initTermIndex(int termIndex) {
       if (currentTermBytes == null) {
         if (termIndex < adjust || termIndex >= nTerms || !acceptTerm(termIndex)) {
@@ -124,7 +126,7 @@ public class DocBasedFacetResponseBuilder {
         throw new RuntimeException(ex);
       }
     }
-        
+
     private int acceptDoc(int termIndex, BytesRef docId) {
       if (activeTermIndex != termIndex) {
         if (!initTermIndex(termIndex)) {
@@ -133,7 +135,7 @@ public class DocBasedFacetResponseBuilder {
       }
       return docIndex(docId);
     }
-    
+
     private int docIndex(BytesRef docId) {
       if (docId == null) {
         return 0;
@@ -143,7 +145,7 @@ public class DocBasedFacetResponseBuilder {
         return Arrays.binarySearch(docIds, docId, idFieldComparator);
       }
     }
-    
+
     private BytesRef incrementDocId(int termIndex, BytesRef lastDocId) {
       if (activeTermIndex != termIndex) {
         if (!initTermIndex(termIndex)) {
@@ -181,7 +183,7 @@ public class DocBasedFacetResponseBuilder {
       } while ((termIndex = incrementTermIndex(termIndex)) >= 0);
       return termDocIndexKey = null;
     }
-    
+
     private BytesRef decrementDocId(int termIndex, BytesRef lastDocId) {
       if (activeTermIndex != termIndex) {
         if (!initTermIndex(termIndex)) {
@@ -232,7 +234,10 @@ public class DocBasedFacetResponseBuilder {
         throw new IllegalStateException();
       }
       String termDocTerm = currentTerm + this.ftDelim + facetKey.docId.utf8ToString();
-      Entry<String, Object> entry = new SimpleImmutableEntry<>(termDocTerm, documents[localDocIndex]);
+      NamedList<Object> localEntry = new NamedList<>();
+      // Because binary response writer does not recognize Lucene Documents, and treats them as simply Iterable.
+      localEntry.add("docs", new SolrDocument[] {DocsStreamer.getDoc(documents[localDocIndex], this.searcher.getSchema())});
+      Entry<String, Object> entry = new SimpleImmutableEntry<>(termDocTerm, localEntry);
       limitMinder.addEntry(entry, entryBuilder);
     }
 
