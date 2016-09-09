@@ -23,8 +23,10 @@ import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.util.BytesRef;
 
 /**
  *
@@ -36,9 +38,11 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
   private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
   private final OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
+  private final PayloadAttribute payloadAtt = addAttribute(PayloadAttribute.class);
 
   private final StringBuilder sb = new StringBuilder(200);
   private final String outputType;
+  private final String typeForPayload;
   private final String delim;
   private final boolean outputComponentTokens;
   private final boolean appendPlaceholders;
@@ -47,13 +51,14 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final String[] components;
   private int bufferedOffsetStart;
   private int bufferedOffsetEnd;
+  private BytesRef payload;
   private State state;
   private boolean primed = false;
   private boolean exhausted = false;
   private int increment = 0;
 
-  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, String delim,
-      boolean outputComponentTokens, boolean appendPlaceholders) {
+  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, String typeForPayload,
+      String delim, boolean outputComponentTokens, boolean appendPlaceholders) {
     super(input);
     componentIndexMap = new HashMap<>(componentTypes.length * 2);
     for (int i = 0; i < componentTypes.length; i++) {
@@ -61,6 +66,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
     components = new String[componentTypes.length];
     this.outputType = outputType;
+    this.typeForPayload = typeForPayload;
     this.delim = delim;
     this.outputComponentTokens = outputComponentTokens;
     this.appendPlaceholders = appendPlaceholders;
@@ -98,6 +104,16 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
   }
 
+  /**
+   * Stores current token's payload attribute in a member variable
+   * if it's appropriate to do so.
+   */
+  private void storePayload() {
+    if(typeForPayload != null && payload == null && typeForPayload.equals(typeAtt.type())) {
+      payload = payloadAtt.getPayload();
+    }
+  }
+
   private boolean buffer() throws IOException {
     Integer index;
     if ((index = componentIndexMap.get(typeAtt.type())) != null) {
@@ -113,12 +129,15 @@ public final class TokenTypeJoinFilter extends TokenFilter {
       } else {
         bufferedOffsetStart = offsetAtt.startOffset();
         bufferedOffsetEnd = offsetAtt.endOffset();
+        payload = null;
         primed = true;
       }
+      storePayload();
       return outputComponentTokens || incrementToken();
     } else {
       posIncrAtt.setPositionIncrement(increment);
       increment = 0;
+      storePayload();
       return true;
     }
   }
@@ -145,6 +164,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     if (outputComponentTokens) {
       posIncrAtt.setPositionIncrement(0);
     }
+    payloadAtt.setPayload(payload);
     Arrays.fill(components, null);
     primed = false;
   }
@@ -163,6 +183,10 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   public void reset() throws IOException {
     exhausted = false;
     primed = false;
+    bufferedOffsetStart = 0;
+    bufferedOffsetEnd = 0;
+    payload = null;
+    exhausted = false;
     increment = 0;
     state = null;
     Arrays.fill(components, null);
