@@ -162,6 +162,10 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   @Override
   public void reset() throws IOException {
     primed = false;
+    bufferedOffsetStart = 0;
+    bufferedOffsetEnd = 0;
+    payload = null;
+    exhausted = false;
     increment = 0;
     state = null;
     Arrays.fill(components, null);
