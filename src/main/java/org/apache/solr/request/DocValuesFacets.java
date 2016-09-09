@@ -17,8 +17,6 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
-import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
@@ -41,6 +39,10 @@ import org.apache.lucene.util.LongValues;
 import org.apache.lucene.util.UnicodeUtil;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.AscendingFacetTermIteratorFactory;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.DescendingFacetTermIteratorFactory;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.Env;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.LocalTermEnv;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.SchemaField;
 import org.apache.solr.search.DocSet;
@@ -250,119 +252,11 @@ public class DocValuesFacets {
           }
         }
         } else {
-          Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(limit, 1000));
           final int targetIdx = (int)si.lookupTerm(target);
-          int actualOffset = 0;
-          int descentStartIdx = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1 + adjust;
-          if (offset > 0) {
-            i = descentStartIdx;
-            off = offset;
-            for (; i >= adjust; i--) {
-              int c = counts[i];
-              if (c < mincount) {
-                continue;
-              }
-              BytesRef term = null;
-              if (contains != null) {
-                term = si.lookupOrd(startTermIndex + i);
-                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
-                  continue;
-                }
-              }
-              if (term == null) {
-                term = si.lookupOrd(startTermIndex + i);
-              }
-              ft.indexedToReadable(term, charsRef);
-              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, true))) {
-                entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
-              }
-              if (--off <= 0) {
-                i--;
-                break;
-              }
-            }
-            descentStartIdx = i;
-            actualOffset = offset - off;
-          }
-          if (actualOffset < limit) {
-            i = (targetIdx < 0 ? ~targetIdx : targetIdx) + adjust;
-            Provisional provisional;
-            if (offset < 0) {
-              off = -offset;
-              lim = limit;
-              provisional = Provisional.PROVISIONAL;
-            } else {
-              off = 0;
-              lim = limit - actualOffset;
-              provisional = Provisional.NEVER;
-            }
-            for (; i < nTerms; i++) {
-              int c = counts[i];
-              if (c < mincount) {
-                continue;
-              }
-              BytesRef term = null;
-              if (contains != null) {
-                term = si.lookupOrd(startTermIndex + i);
-                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
-                  continue;
-                }
-              }
-              if (provisional == Provisional.PROVISIONAL && --off < 0) {
-                provisional = Provisional.SATISFIED;
-              }
-              if (term == null) {
-                term = si.lookupOrd(startTermIndex + i);
-              }
-              ft.indexedToReadable(term, charsRef);
-              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, false))) {
-                entryBuilder.addLast(new SimpleImmutableEntry<>(charsRef.toString(), c));
-              }
-              switch (provisional) {
-                case SATISFIED:
-                  if (entryBuilder.size() > limit) {
-                    entryBuilder.removeFirst();
-                  }
-                case NEVER:
-                  if (--lim <= 0) {
-                    break;
-                  }
-              }
-            }
-          }
-          if (entryBuilder.size() < limit) {
-            off = limit - entryBuilder.size();
-            for (i = descentStartIdx; i >= adjust; i--) {
-              int c = counts[i];
-              if (c < mincount) {
-                continue;
-              }
-              BytesRef term = null;
-              if (contains != null) {
-                term = si.lookupOrd(startTermIndex + i);
-                if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
-                  continue;
-                }
-              }
-              if (term == null) {
-                term = si.lookupOrd(startTermIndex + i);
-              }
-              ft.indexedToReadable(term, charsRef);
-              if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, entryBuilder, c, true))) {
-                entryBuilder.addFirst(new SimpleImmutableEntry<>(charsRef.toString(), c));
-              }
-              actualOffset++;
-              if (--off <= 0) {
-                break;
-              }
-            }
-          }
-          int count = entryBuilder.size();
-          res.add("count", count);
-          if (count > 0) {
-            res.add("target_offset", actualOffset);
-          }
-          addEntry(res, "terms", new NamedList<Object>(entryBuilder.toArray(new Entry[entryBuilder.size()])));
+          Env env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
+              ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);
+          BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
+              new AscendingFacetTermIteratorFactory());
         }
       }
     }

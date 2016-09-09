@@ -19,12 +19,9 @@ package org.apache.solr.handler.component;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URL;
-import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -47,6 +44,11 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.common.util.StrUtils;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.AscendingFacetTermIteratorFactory;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.DescendingFacetTermIteratorFactory;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.DistribEnv;
+import org.apache.solr.request.BidirectionalFacetResponseBuilder.Env;
 import org.apache.solr.request.FacetPayload;
 import org.apache.solr.request.MultiSerializable;
 import org.apache.solr.request.SimpleFacets;
@@ -1175,78 +1177,15 @@ public class FacetComponent extends SearchComponent {
         }
       } else {
         // index order with target/offset
-        Deque<Entry<String, Object>> entryBuilder = new ArrayDeque<>(Math.min(dff.limit, 1000));
         int targetIdx = Arrays.binarySearch(counts, dff.target, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
-        int actualOffset = 0;
-        int descentStartIdx = (targetIdx < 0 ? ~targetIdx : targetIdx) - 1;
-        if (dff.offset > 0) {
-          int lim = Math.min(dff.offset, dff.limit);
-          int endOff = dff.limit < 0 ? 0 : dff.offset - dff.limit;
-          int i = descentStartIdx;
-          for (; i >= 0; i--) {
-            long count = counts[i].count;
-            if (count < dff.minCount) {
-              continue;
-            }
-            if (endOff-- > 0) {
-              continue;
-            }
-            Object val = counts[i].val != null ? counts[i].val : num(count);
-            entryBuilder.addFirst(new SimpleImmutableEntry<>(counts[i].name, val));
-            if (--lim <= 0) {
-              i--;
-              break;
-            }
-          }
-          descentStartIdx = i;
-          actualOffset = dff.offset - lim;
+        Env env = new DistribEnv(dff.offset, dff.limit, targetIdx, dff.targetDoc,
+            dff.minCount, dff.field, dff.ftype, fieldCounts, counts);
+        try {
+          termVals = BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
+              new AscendingFacetTermIteratorFactory());
+        } catch (IOException ex) {
+          throw new RuntimeException(ex);
         }
-        int lim = dff.limit >= 0 ? dff.limit : Integer.MAX_VALUE;
-        if (actualOffset < lim) {
-          int off;
-          if (dff.offset < 0) {
-            off = -dff.offset;
-          } else {
-            off = 0;
-            lim = lim - actualOffset;
-          }
-          for (int i = (targetIdx < 0 ? ~targetIdx : targetIdx); i < counts.length; i++) {
-            long count = counts[i].count;
-            if (count < dff.minCount) {
-              continue;
-            }
-            if (--off >= 0) {
-              continue;
-            }
-            Object val = counts[i].val != null ? counts[i].val : num(count);
-            entryBuilder.addLast(new SimpleImmutableEntry<>(counts[i].name, val));
-            if (--lim <= 0) {
-              break;
-            }
-          }
-        }
-        if (entryBuilder.size() < dff.limit) {
-          lim = dff.limit - entryBuilder.size();
-          for (int i = descentStartIdx; i >= 0; i--) {
-            long count = counts[i].count;
-            if (count < dff.minCount) {
-              continue;
-            }
-            Object val = counts[i].val != null ? counts[i].val : num(count);
-            entryBuilder.addFirst(new SimpleImmutableEntry<>(counts[i].name, val));
-            actualOffset++;
-            if (--lim <= 0) {
-              break;
-            }
-          }
-        }
-        int count = entryBuilder.size();
-        fieldCounts.add("count", count);
-        if (count > 0) {
-          fieldCounts.add("target_offset", actualOffset);
-        }
-        termVals = new NamedList<>(entryBuilder.toArray(new Entry[entryBuilder.size()]));
-        fieldCounts.add("terms", termVals);
       }
       if (dff.ftype instanceof MultiSerializable) {
         ((MultiSerializable)dff.ftype).updateExternalRepresentation(termVals);
