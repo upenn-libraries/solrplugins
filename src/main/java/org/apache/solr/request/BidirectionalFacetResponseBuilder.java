@@ -235,7 +235,8 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (finalDescent) {
         return null;
       } else if (actualOffset < env.limit) {
-        return inner.newInstance(actualOffset, facetKey, size, env, outer);
+        K resumeDescent = facetKey == null ? null : limitMinder.nextKey(facetKey, env);
+        return inner.newInstance(actualOffset, resumeDescent, size, env, outer);
       } else if (size < env.limit) {
         return outer.finalInstance(facetKey, actualOffset, size, env);
       } else {
