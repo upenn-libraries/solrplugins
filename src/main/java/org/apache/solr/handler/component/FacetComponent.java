@@ -1540,6 +1540,7 @@ public class FacetComponent extends SearchComponent {
       
       FixedBitSet terms = new FixedBitSet(termNum + sz);
 
+      String delim = fPayload != null && fPayload instanceof MultiSerializable ? ((MultiSerializable)fPayload).getDelim() : "\u0000";
       long last = 0;
       for (int i = 0; i < sz; i++) {
         String name = shardCounts.getName(i);
@@ -1562,7 +1563,7 @@ public class FacetComponent extends SearchComponent {
               val = null;
               count = docs.size();
             } else {
-              tdi = new TermDocIterator(name, docs.iterator(), termEntry);
+              tdi = new TermDocIterator(name, delim, docs.iterator(), termEntry);
               val = next = tdi.next();
               name = next.termDocId;
               count = 1;
@@ -1614,11 +1615,13 @@ public class FacetComponent extends SearchComponent {
     private static class TermDocIterator implements Iterator<TermDocEntry> {
 
       private final String term;
+      private final String termPlusDelim;
       private final Iterator<Entry<String, SolrDocument>> docs;
       private final NamedList<Object> termMetadata;
 
-      public TermDocIterator(String term, Iterator<Entry<String, SolrDocument>> docs, NamedList<Object> termMetadata) {
+      public TermDocIterator(String term, String delim, Iterator<Entry<String, SolrDocument>> docs, NamedList<Object> termMetadata) {
         this.term = term;
+        this.termPlusDelim = term.concat(delim);
         this.docs = docs;
         this.termMetadata = termMetadata;
       }
@@ -1631,7 +1634,8 @@ public class FacetComponent extends SearchComponent {
       @Override
       public TermDocEntry next() {
         Entry<String, SolrDocument> next = docs.next();
-        return new TermDocEntry(term, next.getKey(), termMetadata, next.getValue());
+        String docId = next.getKey();
+        return new TermDocEntry(term, termPlusDelim.concat(docId), docId, termMetadata, next.getValue());
       }
 
     }
@@ -1643,10 +1647,10 @@ public class FacetComponent extends SearchComponent {
       public final NamedList<Object> termMetadata;
       public final SolrDocument doc;
 
-      public TermDocEntry(String term, String docId, NamedList<Object> termMetadata, SolrDocument doc) {
+      public TermDocEntry(String term, String termDocId, String docId, NamedList<Object> termMetadata, SolrDocument doc) {
         this.term = term;
         this.docId = docId;
-        this.termDocId = term.concat(docId);
+        this.termDocId = termDocId;
         this.termMetadata = termMetadata;
         this.doc = doc;
       }

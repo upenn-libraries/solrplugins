@@ -252,7 +252,6 @@ public class DocValuesFacets {
         }
         } else {
           int targetIdx = (int)si.lookupTerm(target);
-          System.err.println("my target idx: "+targetIdx+", target="+target.utf8ToString());
           Env env;
           if (targetDoc != null) {
             env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
