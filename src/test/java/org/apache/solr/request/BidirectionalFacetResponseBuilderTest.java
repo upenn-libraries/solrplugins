@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.AscendingFacetTermIteratorFactory;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.DescendingFacetTermIteratorFactory;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.Env;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.SimpleTermIndexKey;
 import org.apache.solr.schema.FieldType;
@@ -137,8 +135,7 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     NamedList exp = buildExpected(expectedOffset, expectedIndices);
     NamedList actual = new NamedList(3);
     Env<T, SimpleTermIndexKey> env = new TestEnv<>(requestedOffset, limit, targetIdx, mincount, fieldName, ft, actual, counts);
-    BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
-              new AscendingFacetTermIteratorFactory());
+    BidirectionalFacetResponseBuilder.build(env, false);
     assertEquals(actual.get("count"), ((NamedList)actual.get("terms")).size());
     assertEquals(exp, actual);
   }
@@ -223,7 +220,5 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     public void initState(SimpleTermIndexKey key) {
       // stub
     }
-
   }
-  
 }

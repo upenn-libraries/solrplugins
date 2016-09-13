@@ -18,6 +18,7 @@ package org.apache.solr.request;
 
 import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -93,14 +94,14 @@ public class DocBasedFacetResponseBuilder {
       SchemaField uniqueKeyField = searcher.getSchema().getUniqueKeyField();
       this.targetDoc = new BytesRef(targetDoc);
       this.idField = uniqueKeyField.getName();
-      this.sortField = uniqueKeyField.getSortField(true);
+      this.sortField = uniqueKeyField.getSortField(false);
       this.idFieldComparator = this.sortField.getBytesComparator();
       this.sort = new Sort(sortField);
       this.docs = docs;
     }
 
     private boolean initTermIndex(int termIndex) {
-      if (currentTermBytes == null) {
+      if (currentTermBytes == null || termIndex != this.activeTermIndex) {
         if (termIndex < adjust || termIndex >= nTerms || !acceptTerm(termIndex)) {
           return false;
         }
@@ -130,15 +131,21 @@ public class DocBasedFacetResponseBuilder {
     private int acceptDoc(int termIndex, BytesRef docId) {
       if (activeTermIndex != termIndex) {
         if (!initTermIndex(termIndex)) {
-          return -1;
+          return Integer.MIN_VALUE;
         }
       }
-      return docIndex(docId);
+      int ret = docIndex(docId);
+      int cardinality = ret < 0 ? ~ret : ret;
+      if (cardinality >= documents.length) {
+        return Integer.MIN_VALUE;
+      } else {
+        return ret;
+      }
     }
 
     private int docIndex(BytesRef docId) {
       if (docId == null) {
-        return 0;
+        return -1;
       } else if (localDocIndex >= 0 && localDocIndex < docIds.length && docId.bytesEquals(docIds[localDocIndex])) {
         return localDocIndex;
       } else {
@@ -181,6 +188,7 @@ public class DocBasedFacetResponseBuilder {
           }
         }
       } while ((termIndex = incrementTermIndex(termIndex)) >= 0);
+      localDocIndex = -1;
       return termDocIndexKey = null;
     }
 
@@ -225,6 +233,7 @@ public class DocBasedFacetResponseBuilder {
         }
         docId = UnicodeUtil.BIG_TERM;
       } while ((termIndex = decrementTermIndex(termIndex)) >= 0);
+      localDocIndex = -1;
       return termDocIndexKey = null;
     }
 
@@ -233,12 +242,30 @@ public class DocBasedFacetResponseBuilder {
       if (termDocIndexKey != facetKey) {
         throw new IllegalStateException();
       }
-      String termDocTerm = currentTerm + this.ftDelim + facetKey.docId.utf8ToString();
-      NamedList<Object> localEntry = new NamedList<>();
+      String docIdStr = docIds[localDocIndex].utf8ToString();
       // Because binary response writer does not recognize Lucene Documents, and treats them as simply Iterable.
-      localEntry.add("docs", new SolrDocument[] {DocsStreamer.getDoc(documents[localDocIndex], this.searcher.getSchema())});
-      Entry<String, Object> entry = new SimpleImmutableEntry<>(termDocTerm, localEntry);
-      limitMinder.addEntry(entry, entryBuilder);
+      SolrDocument doc = DocsStreamer.getDoc(documents[localDocIndex], this.searcher.getSchema());
+      if (!limitMinder.updateEntry(currentTerm, docIdStr, doc, entryBuilder)) {
+        Deque<Entry<String, SolrDocument>> docDeque = new ArrayDeque<>(4);
+        docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
+        NamedList<Object> termEntry = new NamedList<>(4);
+        termEntry.add("docs", docDeque);
+        Entry<String, Object> entry = new SimpleImmutableEntry<>(currentTerm, termEntry);
+        limitMinder.addEntry(entry, entryBuilder);
+      }
+    }
+
+    @Override
+    public NamedList<Object> finalize(NamedList<Object> ret) {
+      ret = super.finalize(ret);
+      for (int i = 0; i < ret.size(); i++) {
+        NamedList<Object> termEntry = (NamedList<Object>)ret.getVal(i);
+        int docsIdx = termEntry.size() - 1;
+        Deque<Entry<String, SolrDocument>> docDeque = (Deque<Entry<String, SolrDocument>>)termEntry.getVal(docsIdx);
+        NamedList<SolrDocument> docsExternal = new NamedList(docDeque.toArray(new Entry[docDeque.size()]));
+        termEntry.setVal(docsIdx, docsExternal);
+      }
+      return ret;
     }
 
     @Override
