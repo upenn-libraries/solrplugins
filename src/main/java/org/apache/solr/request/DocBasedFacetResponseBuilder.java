@@ -282,9 +282,9 @@ public class DocBasedFacetResponseBuilder {
       int rawTargetIdx = getTargetKeyIndex();
       BytesRef initTargetDoc = targetDoc;
       if (rawTargetIdx < termIndex) {
-        initTargetDoc = UnicodeUtil.BIG_TERM;
-      } else if (rawTargetIdx > termIndex) {
         initTargetDoc = null;
+      } else if (rawTargetIdx > termIndex) {
+        initTargetDoc = UnicodeUtil.BIG_TERM;
       }
       TermDocIndexKey ret = new TermDocIndexKey(termIndex, initTargetDoc);
       int docIndex = acceptDoc(termIndex, initTargetDoc);
