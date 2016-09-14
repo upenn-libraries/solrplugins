@@ -44,7 +44,8 @@ import org.apache.solr.schema.TextField;
 public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload {
 
   private static final String NORMALIZED_TOKEN_TYPE = "normalized";
-  private static final String RAW_TOKEN_TYPE = "raw";
+  private static final String RAW_TOKEN_TYPE = "filing";
+  private static final String PREFIX_TOKEN_TYPE = "prefix";
   private static final String INDEXED_TOKEN_TYPE = "indexed";
 
   private static final String SERIALIZER_ARGNAME = "serializer";
