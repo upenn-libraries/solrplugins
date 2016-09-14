@@ -123,10 +123,11 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
         provisional = Provisional.NEVER;
       }
       LimitMinder<T, K> limitMinder;
+      K targetKeyInit = env.targetKeyInit(true);
       if (doc) {
-        limitMinder = new IncrementingDocLimitMinder(env.targetKeyInit(true));
+        limitMinder = new IncrementingDocLimitMinder(targetKeyInit);
       } else {
-        limitMinder = new IncrementingLimitMinder(env.targetKeyInit(true));
+        limitMinder = new IncrementingLimitMinder(targetKeyInit);
       }
       return new AscendingFacetTermIterator<>(provisional, limitMinder, actualOffsetInit, off, lim, descentStartIdx, env, outer);
     }
@@ -590,7 +591,10 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (!limitMinder.updateEntry(currentTerm, docIdStr, doc, entryBuilder)) {
         Deque<Entry<String, SolrDocument>> docDeque = new ArrayDeque<>(4);
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
-        NamedList<Object> termEntry = val.termMetadata;
+        NamedList<Object> termEntry = new NamedList<>(2);
+        if (val.termMetadata != null) {
+          termEntry.add("termMetadata", val.termMetadata);
+        }
         termEntry.add("docs", docDeque);
         Entry<String, Object> entry = new SimpleImmutableEntry<>(currentTerm, termEntry);
         limitMinder.addEntry(entry, entryBuilder);

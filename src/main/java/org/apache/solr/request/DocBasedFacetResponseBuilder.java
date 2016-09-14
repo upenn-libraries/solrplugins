@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Query;
@@ -249,6 +250,13 @@ public class DocBasedFacetResponseBuilder {
         Deque<Entry<String, SolrDocument>> docDeque = new ArrayDeque<>(4);
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
         NamedList<Object> termEntry = new NamedList<>(4);
+        if (extend) {
+          PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
+          Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, postings);
+          if (entry != null) {
+            termEntry.add("termMetadata", entry.getValue());
+          }
+        }
         termEntry.add("docs", docDeque);
         Entry<String, Object> entry = new SimpleImmutableEntry<>(currentTerm, termEntry);
         limitMinder.addEntry(entry, entryBuilder);

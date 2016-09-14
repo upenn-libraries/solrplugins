@@ -1563,7 +1563,7 @@ public class FacetComponent extends SearchComponent {
               val = null;
               count = docs.size();
             } else {
-              tdi = new TermDocIterator(name, delim, docs.iterator(), termEntry);
+              tdi = new TermDocIterator(name, delim, docs.iterator(), (NamedList<Object>)termEntry.get("termMetadata"));
               val = next = tdi.next();
               name = next.termDocId;
               count = 1;
@@ -1644,7 +1644,7 @@ public class FacetComponent extends SearchComponent {
       public final String term;
       public final String docId;
       public final String termDocId;
-      public final NamedList<Object> termMetadata;
+      public NamedList<Object> termMetadata;
       public final SolrDocument doc;
 
       public TermDocEntry(String term, String termDocId, String docId, NamedList<Object> termMetadata, SolrDocument doc) {
@@ -1662,9 +1662,38 @@ public class FacetComponent extends SearchComponent {
         = counts.values().toArray(new ShardFacetCount[counts.size()]);
       Arrays.sort(arr, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
       countSorted = arr;
+      mergeTermMetadata(arr);
       return arr;
     }
     
+    public void mergeTermMetadata(ShardFacetCount[] arr) {
+      if (extend && arr.length > 1 && fPayload != null) {
+        ShardFacetCount lastSfc = arr[0];
+        if (lastSfc.val != null && lastSfc.val instanceof TermDocEntry) {
+          TermDocEntry last = (TermDocEntry)lastSfc.val;
+          if (last.termMetadata != null) {
+            NamedList<Object> lastAdd = null;
+            for (int i = 1; i < arr.length; i++) {
+              TermDocEntry next = (TermDocEntry)arr[i].val;
+              if (lastAdd == next.termMetadata) {
+                // already merged
+                next.termMetadata = last.termMetadata;
+              } else if (last.term.equals(next.term) && last.termMetadata != next.termMetadata) {
+                lastAdd = next.termMetadata;
+                long existingCount = fPayload.extractCount(last.termMetadata);
+                long addCount = fPayload.extractCount(lastAdd);
+                NamedList<Object> merged = (NamedList<Object>)fPayload.mergePayload(last.termMetadata, lastAdd,
+                    existingCount, addCount);
+                last.termMetadata = merged;
+                next.termMetadata = merged;
+              }
+              last = next;
+            }
+          }
+        }
+      }
+    }
+
     public ShardFacetCount[] getCountSorted() {
       ShardFacetCount[] arr 
         = counts.values().toArray(new ShardFacetCount[counts.size()]);
