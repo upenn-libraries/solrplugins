@@ -48,6 +48,63 @@ public class JsonReferencePayloadTokenizerTest {
   }
 
   @Test
+  public void testShorthand1() throws IOException {
+    JsonReferencePayloadTokenizer tokenizer = new JsonReferencePayloadTokenizer();
+    tokenizer.setReader(new StringReader("\"something\""));
+    tokenizer.reset();
+
+    assertTrue(tokenizer.incrementToken());
+    assertEquals("something", tokenizer.getAttribute(CharTermAttribute.class).toString());
+    assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
+    assertEquals(1, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
+    assertNull(tokenizer.getAttribute(PayloadAttribute.class).getPayload());
+
+    assertFalse(tokenizer.incrementToken());
+  }
+
+  @Test
+  public void testShorthand2() throws IOException {
+    JsonReferencePayloadTokenizer tokenizer = new JsonReferencePayloadTokenizer();
+    tokenizer.setReader(new StringReader("{\"filing\": \"something\", \"prefix\": \"The \"}"));
+    tokenizer.reset();
+
+    assertTrue(tokenizer.incrementToken());
+    assertEquals("something", tokenizer.getAttribute(CharTermAttribute.class).toString());
+    assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
+    assertEquals(1, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
+    assertNull(tokenizer.getAttribute(PayloadAttribute.class).getPayload());
+
+    assertTrue(tokenizer.incrementToken());
+    assertEquals("The ", tokenizer.getAttribute(CharTermAttribute.class).toString());
+    assertEquals(JsonReferencePayloadTokenizer.TYPE_PREFIX, tokenizer.getAttribute(TypeAttribute.class).type());
+    assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
+    assertNull(tokenizer.getAttribute(PayloadAttribute.class).getPayload());
+
+    assertFalse(tokenizer.incrementToken());
+  }
+
+  @Test
+  public void testShorthand3() throws IOException {
+    JsonReferencePayloadTokenizer tokenizer = new JsonReferencePayloadTokenizer();
+    tokenizer.setReader(new StringReader("{\"prefix\": \"The \", \"filing\": \"something\"}"));
+    tokenizer.reset();
+
+    assertTrue(tokenizer.incrementToken());
+    assertEquals("something", tokenizer.getAttribute(CharTermAttribute.class).toString());
+    assertEquals(JsonReferencePayloadTokenizer.TYPE_FILING, tokenizer.getAttribute(TypeAttribute.class).type());
+    assertEquals(1, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
+    assertNull(tokenizer.getAttribute(PayloadAttribute.class).getPayload());
+
+    assertTrue(tokenizer.incrementToken());
+    assertEquals("The ", tokenizer.getAttribute(CharTermAttribute.class).toString());
+    assertEquals(JsonReferencePayloadTokenizer.TYPE_PREFIX, tokenizer.getAttribute(TypeAttribute.class).type());
+    assertEquals(0, tokenizer.getAttribute(PositionIncrementAttribute.class).getPositionIncrement());
+    assertNull(tokenizer.getAttribute(PayloadAttribute.class).getPayload());
+
+    assertFalse(tokenizer.incrementToken());
+  }
+
+  @Test
   public void testMultipartStrings() throws IOException {
     JsonReferencePayloadTokenizer tokenizer = new JsonReferencePayloadTokenizer();
     tokenizer.setReader(new StringReader("{\"raw\": {\"prefix\": \"the \", \"filing\": \"unconsoled\"}, \"refs\": {\"use_for\":[\"ref1\",{\"prefix\": \"a \", \"filing\": \"chicken\"}], \"see_also\":[\"ref3\"]}}"));

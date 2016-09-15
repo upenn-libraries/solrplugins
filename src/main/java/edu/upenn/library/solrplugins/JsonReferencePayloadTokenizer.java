@@ -104,17 +104,33 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
   }
 
   private void parse() throws IOException {
-    if (parser.nextToken() != JsonToken.START_OBJECT) {
-      throw new IOException("Expected data to start with a START_OBJECT token, but found this instead: " + parser.getCurrentToken());
-    }
-
     MultiPartString raw = null;
     int positionIncrement = 1;
 
-    while (parser.nextToken() != JsonToken.END_OBJECT) {
+    JsonToken next = parser.nextToken();
+    if (next == null) {
+      throw new IOException("input not recognized as JSON");
+    } else if (next.compareTo(JsonToken.VALUE_STRING) >= 0) {
+      raw = new MultiPartString(parser.getValueAsString());
+      appendTokens(raw, null, positionIncrement);
+      return;
+    } else if (next == JsonToken.START_OBJECT) {
+      String nextFieldName = parser.nextFieldName();
+      if (MULTIPART_STRING_FILING.equals(nextFieldName) || MULTIPART_STRING_PREFIX.equals(nextFieldName)) {
+        raw = parseStringOrMultipartStringObject();
+        appendTokens(raw, null, positionIncrement);
+        return;
+      }
+    } else {
+      throw new IOException("Expected data to start with a START_OBJECT token, but found this instead: " + parser.getCurrentToken());
+    }
+
+    do {
       String topLevelField = parser.getCurrentName();
       if (FIELD_RAW.equals(topLevelField)) {
-        parser.nextToken();
+        if (parser.nextToken() == JsonToken.START_OBJECT) {
+          parser.nextToken();
+        }
         raw = parseStringOrMultipartStringObject();
         appendTokens(raw, null, positionIncrement);
         positionIncrement++;
@@ -124,7 +140,10 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
             String referenceType = parser.getCurrentName();
             JsonToken t = parser.nextToken();
             if (t == JsonToken.START_ARRAY) {
-              while (parser.nextToken() != JsonToken.END_ARRAY) {
+              while ((next = parser.nextToken()) != JsonToken.END_ARRAY) {
+                if (next == JsonToken.START_OBJECT) {
+                  parser.nextToken();
+                }
                 String payload = referenceType + PAYLOAD_ATTR_SEPARATOR + raw.toDelimitedStringForFilingAndPrefix();
                 appendTokens(parseStringOrMultipartStringObject(), payload, positionIncrement);
                 positionIncrement++;
@@ -137,7 +156,7 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
           throw new IOException("Expected start of object as object value for " + FIELD_REFS);
         }
       }
-    }
+    } while (parser.nextToken() != JsonToken.END_OBJECT);
   }
 
   /**
@@ -149,9 +168,9 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
     JsonToken t = parser.getCurrentToken();
     if(t == JsonToken.VALUE_STRING) {
       multiPartString = new MultiPartString(parser.getValueAsString());
-    } else if(t == JsonToken.START_OBJECT) {
+    } else if(t == JsonToken.FIELD_NAME) {
       String prefix = null, filing = null;
-      while (parser.nextToken() != JsonToken.END_OBJECT) {
+      do {
         String stringComponentType = parser.getCurrentName();
         parser.nextToken();
         String stringComponentValue = parser.getValueAsString();
@@ -162,7 +181,7 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
         } else {
           throw new IOException("Expected object key for multipart string (" + MULTIPART_STRING_PREFIX + ", " + MULTIPART_STRING_FILING + ") but got = " + stringComponentType);
         }
-      }
+      } while (parser.nextToken() != JsonToken.END_OBJECT);
       multiPartString = new MultiPartString(filing, prefix);
     } else {
       throw new IOException("Expected string or object representing multipart string, but got " + t.name());
