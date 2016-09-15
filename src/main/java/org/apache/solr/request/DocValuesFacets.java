@@ -39,10 +39,9 @@ import org.apache.lucene.util.LongValues;
 import org.apache.lucene.util.UnicodeUtil;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.AscendingFacetTermIteratorFactory;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.DescendingFacetTermIteratorFactory;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.Env;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.LocalTermEnv;
+import org.apache.solr.request.DocBasedFacetResponseBuilder.LocalDocEnv;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.SchemaField;
 import org.apache.solr.search.DocSet;
@@ -252,11 +251,16 @@ public class DocValuesFacets {
           }
         }
         } else {
-          final int targetIdx = (int)si.lookupTerm(target);
-          Env env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
-              ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);
-          BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
-              new AscendingFacetTermIteratorFactory());
+          int targetIdx = (int)si.lookupTerm(target);
+          Env env;
+          if (targetDoc != null) {
+            env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
+                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, fieldName, ft, res);
+          } else {
+            env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains,
+                ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);
+          }
+          BidirectionalFacetResponseBuilder.build(env, targetDoc != null);
         }
       }
     }

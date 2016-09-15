@@ -43,4 +43,6 @@ public interface MultiSerializable {
   void updateExternalRepresentation(NamedList<Object> nl);
 
   BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException;
+
+  String getDelim();
 }

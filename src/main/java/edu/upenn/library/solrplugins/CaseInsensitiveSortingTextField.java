@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
@@ -43,7 +44,8 @@ import org.apache.solr.schema.TextField;
 public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload {
 
   private static final String NORMALIZED_TOKEN_TYPE = "normalized";
-  private static final String RAW_TOKEN_TYPE = "raw";
+  private static final String RAW_TOKEN_TYPE = "filing";
+  private static final String PREFIX_TOKEN_TYPE = "prefix";
   private static final String INDEXED_TOKEN_TYPE = "indexed";
 
   private static final String SERIALIZER_ARGNAME = "serializer";
@@ -89,8 +91,13 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
+  public String getDelim() {
+    return delim;
+  }
+
+  @Override
   public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException {
-    TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, new StringReader(val));
+    TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, val);
     try {
       ts.reset();
       CharTermAttribute termAtt = ts.getAttribute(CharTermAttribute.class);
@@ -239,30 +246,30 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
     return payloadHandler.updateValueExternalRepresentation(internal);
   }
 
-  private static class DefaultPayloadHandler implements FacetPayload<Void> {
+  private static class DefaultPayloadHandler implements FacetPayload<Object> {
 
     @Override
-    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Void> res) throws IOException {
+    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Object> res) throws IOException {
       return false;
     }
 
     @Override
-    public Entry<String, Void> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
+    public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
       return null;
     }
 
     @Override
-    public Void mergePayload(Void preExisting, Void add, long preExistingCount, long addCount) {
+    public Object mergePayload(Object preExisting, Object add, long preExistingCount, long addCount) {
       return null;
     }
 
     @Override
-    public long extractCount(Void val) {
-      throw new UnsupportedOperationException("Not supported; misconfiguration; this should never happen.");
+    public long extractCount(Object val) {
+      return 1L; // for document-centric results only.
     }
 
     @Override
-    public Object updateValueExternalRepresentation(Void internal) {
+    public Object updateValueExternalRepresentation(Object internal) {
       return null;
     }
 

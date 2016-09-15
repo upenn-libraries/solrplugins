@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.AscendingFacetTermIteratorFactory;
-import org.apache.solr.request.BidirectionalFacetResponseBuilder.DescendingFacetTermIteratorFactory;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.Env;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.SimpleTermIndexKey;
 import org.apache.solr.schema.FieldType;
@@ -136,9 +134,8 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
     T ft = null;
     NamedList exp = buildExpected(expectedOffset, expectedIndices);
     NamedList actual = new NamedList(3);
-    Env<T, SimpleTermIndexKey> env = new TestEnv<>(requestedOffset, limit, targetIdx, targetDoc, mincount, fieldName, ft, actual, counts);
-    BidirectionalFacetResponseBuilder.build(env, new DescendingFacetTermIteratorFactory(),
-              new AscendingFacetTermIteratorFactory());
+    Env<T, SimpleTermIndexKey> env = new TestEnv<>(requestedOffset, limit, targetIdx, mincount, fieldName, ft, actual, counts);
+    BidirectionalFacetResponseBuilder.build(env, false);
     assertEquals(actual.get("count"), ((NamedList)actual.get("terms")).size());
     assertEquals(exp, actual);
   }
@@ -161,8 +158,8 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
 
     private final int[] counts;
     
-    public TestEnv(int offset, int limit, int targetIdx, String targetDoc, int mincount, String fieldName, T ft, NamedList res, int[] counts) {
-      super(offset, limit, targetIdx, targetDoc, mincount, fieldName, ft, res);
+    public TestEnv(int offset, int limit, int targetIdx, int mincount, String fieldName, T ft, NamedList res, int[] counts) {
+      super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       this.counts = counts;
     }
     
@@ -219,6 +216,9 @@ public class BidirectionalFacetResponseBuilderTest<T extends FieldType & FacetPa
       return counts[i] >= mincount;
     }
 
+    @Override
+    public void initState(SimpleTermIndexKey key) {
+      // stub
+    }
   }
-  
 }
