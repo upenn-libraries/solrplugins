@@ -3,6 +3,7 @@
 The focus of this project is to extend native Solr faceting functionality
 to support a range of commonly-desired use cases. The main aspects of extension
 complement each other, but are mostly orthogonal:
+
 1. normalized index-order sorting (e.g., case-insensitive)
 2. arbitrary index-order result windows, specified by target term, offset, and limit
    (in place of Solr's existing "prefix+offset" result window specification)
