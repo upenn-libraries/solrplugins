@@ -550,7 +550,8 @@ public class SimpleFacets {
             }
           break;
         case FC:
-          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug);
+          boolean external = req.getParams().getBool("distrib", true);
+          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug, external);
           break;
         default:
           throw new AssertionError();
