@@ -65,11 +65,11 @@ import org.apache.solr.util.LongPriorityQueue;
 public class DocValuesFacets {
   private DocValuesFacets() {}
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug, boolean external) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
     FieldType ft = schemaField.getType();
     NamedList<Integer> res = new NamedList<>();
-    
+    NamedList termVals = res;
     // TODO: remove multiValuedFieldCache(), check dv type / uninversion type?
     final boolean multiValued = schemaField.multiValued() || ft.multiValuedFieldCache();
 
@@ -260,11 +260,15 @@ public class DocValuesFacets {
             env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains,
                 ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);
           }
-          BidirectionalFacetResponseBuilder.build(env, targetDoc != null);
+          termVals = BidirectionalFacetResponseBuilder.build(env, targetDoc != null);
         }
       }
     }
-    
+
+    if (ft instanceof MultiSerializable && external) {
+      ((MultiSerializable)ft).updateExternalRepresentation(termVals);
+    }
+
     return finalize(res, searcher, schemaField, docs, missingCount, missing);
   }
 
