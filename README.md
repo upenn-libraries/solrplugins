@@ -231,6 +231,44 @@ Fields can then be defined as follows:
 <field name="subject_xfacet" type="xfacet" indexed="true" stored="true" multiValued="true" />
 ```
 
+## 5. Support for document-centric display/expansion of facet term browsing
+
+In some cases, it is desirable to perform the equivalent of a sort on a multi-valued
+field. Presumably because of the difficulty of defining the desired behavior, this 
+functionality is not supported in stock Solr. But there are particular, fairly common
+use cases where this behavior would be desirable. (N.b., by design, this may result
+in the same document appearing in multiple locations in the browse "index").
+
+For example, suppose a user wants to browse documents with the title "Hamlet" -- roughly
+equivalent to the stock-supported use case of sorting by title and paging to the "H"s.
+Without some form of sorting on multi-valued field, the index schema must be configured
+to choose one and only one canonical "title" per record. But the work "Hamlet" appears
+under various canonical titles, especially when one considers translated versions of the 
+work: "Amleto", "Chamlet", "Gamlet", "Hamlit".... Despite the fact that the records for
+these non-standard titles all contain references to the uniform title "Hamlet", the schema
+designer is forced to choose between having these records appear under their *actual* 
+title ("title proper"), or under the uniform title, co-located with the rest of the
+related works.
+
+Support for document-centric results in response to term-based browsing can be readily
+achieved as an extension of the term browsing approach implemented in this project. This
+is mainly applicable (and useful) for fields that can a large number of mostly unique
+terms, and are *nearly* single-valued: such as "title", or "call number", in a library
+context. The addition of a `facet.targetDoc=[id]` parameter to the `facet.target`,
+`facet.offset`, and `facet.limit` parameter causes results to be returned in a
+document-centric fashion, and introduces some changes in the way the parameters are
+interpreted:
+
+1. `facet.limit` and `facet.offset` params (and response `count` and `target_offset`
+metadata) are now interpreted and applied with respect to the number of *documents* returned.
+2. the target within the document-based results array is now determined by a "key" derived
+from a strict interpretation of the `facet.target` term parameter *in combination with*
+the specified `facet.targetDoc` id. The id is taken from the `uniqueKey` field (as defined
+in the Solr schema.
+
+This "document-centric" extension is implemented orthogonally to the
+"term metadata"/"cross-reference" feature introduced in this project; each feature may
+be used independently, or they may be used in combination.
 
 ## How is the project structured and updated?
 
