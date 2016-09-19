@@ -697,6 +697,8 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
   public static abstract class LocalEnv<T extends FieldType & FacetPayload, K extends FacetKey<K>> extends Env<T, K> {
 
+    protected final int startTermOrd;
+    protected final int endTermOrd;
     protected final int startTermIndex;
     protected final int adjust;
     protected final int nTerms;
@@ -716,6 +718,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
       super(offset, limit, targetIdx, mincount, fieldName, ft, res);
+      if (startTermIndex == -1) {
+        // weird case where missing is counted at counts[0].
+        this.startTermOrd = 0;
+        this.endTermOrd = nTerms - 1;
+      } else if (startTermIndex >= 0) {
+        this.startTermOrd = startTermIndex;
+        this.endTermOrd = startTermIndex + nTerms;
+      } else {
+        throw new IllegalStateException();
+      }
       this.startTermIndex = startTermIndex;
       this.adjust = adjust;
       this.nTerms = nTerms;
@@ -730,18 +742,18 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
     protected boolean acceptTerm(int index) {
       currentTermBytes = null;
-      int c = counts[index];
+      int c = counts[index - startTermIndex];
       if (c < mincount) {
         return false;
       }
       if (contains != null) {
-        currentTermBytes = si.lookupOrd(startTermIndex + index);
+        currentTermBytes = si.lookupOrd(index);
         if (!SimpleFacets.contains(currentTermBytes.utf8ToString(), contains, ignoreCase)) {
           return false;
         }
       }
       if (currentTermBytes == null) {
-        currentTermBytes = si.lookupOrd(startTermIndex + index);
+        currentTermBytes = si.lookupOrd(index);
       }
       ft.indexedToReadable(currentTermBytes, charsRef);
       currentTerm = charsRef.toString();
@@ -760,7 +772,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     }
 
     protected final int incrementTermIndex(int lastKeyIndex) {
-      for (int i = lastKeyIndex + 1; i < nTerms; i++) {
+      for (int i = lastKeyIndex + 1; i < endTermOrd; i++) {
         if (acceptTerm(i)) {
           return i;
         }
@@ -769,7 +781,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     }
 
     protected final int decrementTermIndex(int lastKeyIndex) {
-      for (int i = lastKeyIndex - 1; i >= adjust; i--) {
+      for (int i = lastKeyIndex - 1; i >= startTermOrd; i--) {
         if (acceptTerm(i)) {
           return i;
         }
@@ -783,7 +795,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     protected final int getTargetKeyIndexInit(boolean ascending) {
       int index = getTargetKeyIndex();
-      if (index >= adjust && index < nTerms && acceptTerm(index)) {
+      if (index >= startTermOrd && index < endTermOrd && acceptTerm(index)) {
         return index;
       } else if (ascending) {
         return incrementTermIndex(index);

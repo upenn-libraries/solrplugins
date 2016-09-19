@@ -103,7 +103,7 @@ public class DocBasedFacetResponseBuilder {
 
     private boolean initTermIndex(int termIndex) {
       if (currentTermBytes == null || termIndex != this.activeTermIndex) {
-        if (termIndex < adjust || termIndex >= nTerms || !acceptTerm(termIndex)) {
+        if (termIndex < startTermOrd || termIndex >= endTermOrd || !acceptTerm(termIndex)) {
           return false;
         }
       }
