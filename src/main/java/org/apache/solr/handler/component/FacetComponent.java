@@ -1586,7 +1586,7 @@ public class FacetComponent extends SearchComponent {
               sfc.termNum = termNum++;
               sfc.val = val;
               counts.put(name, sfc);
-            } else if (fPayload != null) {
+            } else if (extend && fPayload != null) {
               sfc.val = fPayload.mergePayload(sfc.val, val, sfc.count, count);
             }
             sfc.count += count;
