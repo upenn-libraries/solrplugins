@@ -107,7 +107,9 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
         if (matchType.equals(typeAtt.type())) {
           BytesRefBuilder ret = new BytesRefBuilder();
           ret.copyChars(termAtt.toString());
-          ret.append(delimBytes, 0, delimBytes.length);
+          if (!strict) {
+            ret.append(delimBytes, 0, delimBytes.length);
+          }
           return ret.get();
         }
       }
