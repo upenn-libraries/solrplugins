@@ -820,7 +820,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public SimpleTermIndexKey incrementKey(SimpleTermIndexKey lastKey) {
       int nextKeyIndex = incrementTermIndex(lastKey.index);
       if (nextKeyIndex < 0) {
-        return null;
+        return facetKey = null;
       } else {
         return facetKey = new SimpleTermIndexKey(nextKeyIndex);
       }
@@ -830,7 +830,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public SimpleTermIndexKey decrementKey(SimpleTermIndexKey lastKey) {
       int nextKeyIndex = decrementTermIndex(lastKey.index);
       if (nextKeyIndex < 0) {
-        return null;
+        return facetKey = null;
       } else {
         return facetKey = new SimpleTermIndexKey(nextKeyIndex);
       }
@@ -862,7 +862,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     public SimpleTermIndexKey targetKeyInit(boolean ascending) throws IOException {
       int index = getTargetKeyIndexInit(ascending);
       if (index < 0) {
-        return null;
+        return facetKey = null;
       } else {
         return facetKey = new SimpleTermIndexKey(index);
       }
