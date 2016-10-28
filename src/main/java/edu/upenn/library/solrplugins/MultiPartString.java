@@ -56,9 +56,13 @@ public class MultiPartString {
    * prefix is optionally present
    */
   public static MultiPartString parseNormalizedFilingAndPrefix(String s) {
-    String[] parts = s.split(DELIMITER);
-    String normalized = parts[0];
-    String filing = parts[1];
+    String[] parts = s.split(DELIMITER, -1);
+    String normalized = null;
+    String filing = null;
+    if(parts.length > 0) {
+      normalized = parts[0];
+      filing = parts[1];
+    }
     String prefix = null;
     if(parts.length > 2) {
       prefix = parts[2];
@@ -70,7 +74,7 @@ public class MultiPartString {
    * prefix is optionally present
    */
   public static MultiPartString parseFilingAndPrefix(String s) {
-    String[] parts = s.split(DELIMITER);
+    String[] parts = s.split(DELIMITER, -1);
     String filing = parts[0];
     String prefix = null;
     if(parts.length > 1) {
