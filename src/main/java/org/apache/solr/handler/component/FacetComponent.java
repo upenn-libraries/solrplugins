@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -555,6 +556,8 @@ public class FacetComponent extends SearchComponent {
         sreq.params.remove(FacetParams.FACET_OFFSET);
       }
       
+//    } else if ((sreq.purpose & (ShardRequest.PURPOSE_GET_FIELDS)) != 0) {
+//      // TODO get fields for xfacet docs as well
     } else {
       // turn off faceting on other requests
       sreq.params.set(FacetParams.FACET, "false");
@@ -1425,6 +1428,7 @@ public class FacetComponent extends SearchComponent {
     public String prefix;
     public ShardFacetCount target;
     public String targetDoc;
+    public Set<String> fl;
     public boolean extend;
     public long missingCount;
     
@@ -1459,6 +1463,7 @@ public class FacetComponent extends SearchComponent {
       }
       this.prefix = params.getFieldParam(field, FacetParams.FACET_PREFIX);
       this.targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
+      this.fl = rb.rsp.getReturnFields().getRequestedFieldNames();
       String rawTarget = params.getFieldParam(field, FacetParams.FACET_TARGET);
       if (rawTarget != null) {
         this.target = new ShardFacetCount();

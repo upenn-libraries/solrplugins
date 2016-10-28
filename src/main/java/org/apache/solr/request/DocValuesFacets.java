@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
@@ -65,7 +66,7 @@ import org.apache.solr.util.LongPriorityQueue;
 public class DocValuesFacets {
   private DocValuesFacets() {}
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug, boolean external) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug, boolean external, Set<String> fl) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
     FieldType ft = schemaField.getType();
     NamedList<Integer> res = new NamedList<>();
@@ -255,7 +256,7 @@ public class DocValuesFacets {
           Env env;
           if (targetDoc != null) {
             env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
-                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, fieldName, ft, res);
+                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, fieldName, ft, res, fl);
           } else {
             env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains,
                 ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);

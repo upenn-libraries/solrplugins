@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -550,8 +551,9 @@ public class SimpleFacets {
             }
           break;
         case FC:
-          boolean external = req.getParams().getBool("distrib", true);
-          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug, external);
+          boolean external = params.getBool("distrib", true);
+          Set<String> fl = rb.rsp.getReturnFields().getRequestedFieldNames();
+          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug, external, fl);
           break;
         default:
           throw new AssertionError();

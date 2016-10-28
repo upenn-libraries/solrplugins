@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedSetDocValues;
@@ -78,6 +79,7 @@ public class DocBasedFacetResponseBuilder {
     private final SortField sortField;
     private final Comparator<BytesRef> idFieldComparator;
     private final String idField;
+    private final Set<String> fl;
 
     private TermDocIndexKey termDocIndexKey;
 
@@ -89,7 +91,7 @@ public class DocBasedFacetResponseBuilder {
 
     public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms,
         String contains, boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend,
-        SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, String fieldName, T ft, NamedList res) {
+        SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, String fieldName, T ft, NamedList res, Set<String> fl) {
       super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
           charsRef, extend, si, searcher, fieldName, ft, res);
       SchemaField uniqueKeyField = searcher.getSchema().getUniqueKeyField();
@@ -99,6 +101,7 @@ public class DocBasedFacetResponseBuilder {
       this.idFieldComparator = this.sortField.getBytesComparator();
       this.sort = new Sort(sortField);
       this.docs = docs;
+      this.fl = fl;
     }
 
     private boolean initTermIndex(int termIndex) {
@@ -118,7 +121,7 @@ public class DocBasedFacetResponseBuilder {
         activeTermIndex = termIndex;
         documents = new Document[size];
         docIds = new BytesRef[size];
-        searcher.readDocs(documents, docList, Collections.singleton(idField));
+        searcher.readDocs(documents, docList, fl);
         localDocIndex = -1;
         for (int i = 0; i < size; i++) {
           docIds[i] = new BytesRef(documents[i].get(idField));
