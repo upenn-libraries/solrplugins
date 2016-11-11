@@ -77,12 +77,12 @@ public class DocValuesFacets {
     final SortedSetDocValues si; // for term lookups only
     OrdinalMap ordinalMap = null; // for mapping per-segment ords to global ones
     if (multiValued) {
-      si = searcher.getLeafReader().getSortedSetDocValues(fieldName);
+      si = searcher.getSlowAtomicReader().getSortedSetDocValues(fieldName);
       if (si instanceof MultiSortedSetDocValues) {
         ordinalMap = ((MultiSortedSetDocValues)si).mapping;
       }
     } else {
-      SortedDocValues single = searcher.getLeafReader().getSortedDocValues(fieldName);
+      SortedDocValues single = searcher.getSlowAtomicReader().getSortedDocValues(fieldName);
       si = single == null ? null : DocValues.singleton(single);
       if (single instanceof MultiSortedDocValues) {
         ordinalMap = ((MultiSortedDocValues)single).mapping;
@@ -281,13 +281,13 @@ public class DocValuesFacets {
 
   private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, NamedList<Integer> res, int count) throws IOException {
-    PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
     return ft.addEntry(val.toString(), count, postings, res);
   }
 
   private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, Deque<Entry<String, Object>> res, int count, boolean addFirst) throws IOException {
-    PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
     Entry<String, Object> entry = ft.addEntry(val.toString(), count, postings);
     if (entry == null) {
       return false;

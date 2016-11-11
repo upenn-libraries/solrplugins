@@ -254,7 +254,7 @@ public class DocBasedFacetResponseBuilder {
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
         NamedList<Object> termEntry = new NamedList<>(4);
         if (extend) {
-          PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
+          PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
           Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, postings);
           if (entry != null) {
             termEntry.add("termMetadata", entry.getValue());

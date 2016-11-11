@@ -845,7 +845,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (!extend) {
         entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
       } else {
-        PostingsEnum postings = searcher.getLeafReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
+        PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
         if ((entry = ft.addEntry(currentTerm, currentTermCount, postings)) == null) {
           entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
         }
