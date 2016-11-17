@@ -53,7 +53,8 @@ public class MultiPartString {
   }
 
   /**
-   * prefix is optionally present
+   * prefix is optionally present.
+   * This exists to parse indexed term values, which begin with the normalized form.
    */
   public static MultiPartString parseNormalizedFilingAndPrefix(String s) {
     String[] parts = s.split(DELIMITER, -1);
@@ -71,7 +72,8 @@ public class MultiPartString {
   }
 
   /**
-   * prefix is optionally present
+   * prefix is optionally present.
+   * This exists to parse payload attribute values, which don't store the normalized form.
    */
   public static MultiPartString parseFilingAndPrefix(String s) {
     String[] parts = s.split(DELIMITER, -1);
