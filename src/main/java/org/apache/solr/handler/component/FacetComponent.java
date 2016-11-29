@@ -1571,6 +1571,12 @@ public class FacetComponent extends SearchComponent {
           } else {
             NamedList<Object> termEntry = (NamedList<Object>)rawVal;
             NamedList<SolrDocument> docs = (NamedList<SolrDocument>)termEntry.remove(termEntry.size() - 1);
+            int duplicateTermCount = docs.size() - 1;
+            if (duplicateTermCount > 0) {
+              FixedBitSet tmpTerms = new FixedBitSet(terms.length() + duplicateTermCount);
+              tmpTerms.or(terms);
+              terms = tmpTerms;
+            }
             if (name == null) {
               val = null;
               count = docs.size();
