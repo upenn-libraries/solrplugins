@@ -427,12 +427,7 @@ public class SimpleFacets {
     BytesRef targetBr = null;
     if (target != null) {
       targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
-      boolean targetStrict;
-      if (targetDoc != null) {
-        targetStrict = true;
-      } else {
-        targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
-      }
+      boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, targetDoc != null && !targetDoc.isEmpty());
       if (ft instanceof MultiSerializable) {
         targetBr = ((MultiSerializable)ft).normalizeQueryTarget(target, targetStrict, field);
       } else {

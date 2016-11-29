@@ -1474,12 +1474,7 @@ public class FacetComponent extends SearchComponent {
       String rawTarget = params.getFieldParam(field, FacetParams.FACET_TARGET);
       if (rawTarget != null) {
         this.target = new ShardFacetCount();
-        boolean targetStrict;
-        if (this.targetDoc != null) {
-          targetStrict = true;
-        } else {
-          targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, false);
-        }
+        boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, this.targetDoc != null && !this.targetDoc.isEmpty());
         if (ftype instanceof MultiSerializable) {
           try {
             this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field).utf8ToString();
@@ -1489,9 +1484,9 @@ public class FacetComponent extends SearchComponent {
         } else {
           this.target.indexed = rawTarget;
         }
-      }
-      if (this.targetDoc != null) {
-        this.target.indexed = this.target.indexed.concat(this.targetDoc);
+        if (targetStrict && this.targetDoc != null) {
+          this.target.indexed = this.target.indexed.concat(this.targetDoc);
+        }
       }
       this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
     }
