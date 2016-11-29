@@ -21,9 +21,11 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map.Entry;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.solr.common.SolrDocument;
@@ -845,8 +847,10 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (!extend) {
         entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
       } else {
-        PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
-        if ((entry = ft.addEntry(currentTerm, currentTermCount, postings)) == null) {
+        LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
+        Bits liveDocs = slowAtomicReader.getLiveDocs();
+        PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
+        if ((entry = ft.addEntry(currentTerm, currentTermCount, postings, liveDocs)) == null) {
           entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
         }
       }

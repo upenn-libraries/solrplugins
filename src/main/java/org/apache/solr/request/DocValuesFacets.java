@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.lucene.index.DocValues;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiDocValues.MultiSortedDocValues;
 import org.apache.lucene.index.MultiDocValues.MultiSortedSetDocValues;
@@ -33,6 +34,7 @@ import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSet;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRefBuilder;
@@ -281,14 +283,18 @@ public class DocValuesFacets {
 
   private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, NamedList<Integer> res, int count) throws IOException {
-    PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
-    return ft.addEntry(val.toString(), count, postings, res);
+    LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
+    Bits liveDocs = slowAtomicReader.getLiveDocs();
+    PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    return ft.addEntry(val.toString(), count, postings, liveDocs, res);
   }
 
   private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, Deque<Entry<String, Object>> res, int count, boolean addFirst) throws IOException {
-    PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
-    Entry<String, Object> entry = ft.addEntry(val.toString(), count, postings);
+    LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
+    Bits liveDocs = slowAtomicReader.getLiveDocs();
+    PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
+    Entry<String, Object> entry = ft.addEntry(val.toString(), count, postings, liveDocs);
     if (entry == null) {
       return false;
     }

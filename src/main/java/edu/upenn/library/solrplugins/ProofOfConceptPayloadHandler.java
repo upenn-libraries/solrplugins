@@ -20,6 +20,7 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.Bits;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.FacetPayload;
 
@@ -30,21 +31,24 @@ import org.apache.solr.request.FacetPayload;
 public class ProofOfConceptPayloadHandler implements FacetPayload<NamedList<Object>> {
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
-    res.add(termKey, buildEntryValue(count, postings));
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
+    res.add(termKey, buildEntryValue(count, postings, liveDocs));
     return true;
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
-    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings));
+  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings, liveDocs));
   }
 
-  private NamedList<Object> buildEntryValue(long count, PostingsEnum postings) throws IOException {
+  private NamedList<Object> buildEntryValue(long count, PostingsEnum postings, Bits liveDocs) throws IOException {
     NamedList<Object> entry = new NamedList<>();
     entry.add("count", count);
     int i = -1;
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+      if (!liveDocs.get(postings.docID())) {
+        continue;
+      }
       i++;
       NamedList<Object> documentEntry = new NamedList<>();
       entry.add("doc" + i, documentEntry);

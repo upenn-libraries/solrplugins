@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.Map;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.FacetPayload;
@@ -120,22 +121,22 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   }
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
 
-    NamedList<Object> entry = buildEntryValue(term, count, postings);
+    NamedList<Object> entry = buildEntryValue(term, count, postings, liveDocs);
 
     res.add(term.getDisplay(), entry);
     return true;
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
+  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
-    return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, postings));
+    return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, postings, liveDocs));
   }
 
-  private NamedList<Object> buildEntryValue(MultiPartString term, long count, PostingsEnum postings) throws IOException {
+  private NamedList<Object> buildEntryValue(MultiPartString term, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
     NamedList<Object> entry = new NamedList<>();
 
     // document count for this term
@@ -153,6 +154,9 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     NamedList<Object> refs = new NamedList<>();
 
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+      if (!liveDocs.get(postings.docID())) {
+        continue;
+      }
       for (int j = 0; j < postings.freq(); j++) {
         postings.nextPosition();
 
@@ -203,7 +207,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   @Override
   public NamedList<Object> mergePayload(NamedList<Object> preExisting, NamedList<Object> add, long preExistingCount, long addCount) {
 
-    if (addCount != ((Number)add.remove(KEY_COUNT)).longValue()) {
+    if (addCount != ((Number)add.get(KEY_COUNT)).longValue()) {
       throw new IllegalStateException("fieldType-internal and -external counts do not match");
     }
     int countIndex = preExisting.indexOf(KEY_COUNT, 0);

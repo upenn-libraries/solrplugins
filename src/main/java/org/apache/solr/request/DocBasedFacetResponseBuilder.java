@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Term;
@@ -34,6 +35,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
 import org.apache.lucene.util.UnicodeUtil;
@@ -254,8 +256,10 @@ public class DocBasedFacetResponseBuilder {
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
         NamedList<Object> termEntry = new NamedList<>(4);
         if (extend) {
-          PostingsEnum postings = searcher.getSlowAtomicReader().postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
-          Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, postings);
+          LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
+          Bits liveDocs = slowAtomicReader.getLiveDocs();
+          PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
+          Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, postings, liveDocs);
           if (entry != null) {
             termEntry.add("termMetadata", entry.getValue());
           }
