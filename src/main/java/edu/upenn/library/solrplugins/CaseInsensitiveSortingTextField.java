@@ -26,6 +26,7 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRef;
@@ -224,13 +225,13 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList res) throws IOException {
-    return payloadHandler.addEntry(termKey, count, postings, res);
+  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
+    return payloadHandler.addEntry(termKey, count, postings, liveDocs, res);
   }
 
   @Override
-  public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
-    return payloadHandler.addEntry(termKey, count, postings);
+  public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+    return payloadHandler.addEntry(termKey, count, postings, liveDocs);
   }
 
   @Override
@@ -251,12 +252,12 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private static class DefaultPayloadHandler implements FacetPayload<Object> {
 
     @Override
-    public boolean addEntry(String termKey, long count, PostingsEnum postings, NamedList<Object> res) throws IOException {
+    public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList<Object> res) throws IOException {
       return false;
     }
 
     @Override
-    public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings) throws IOException {
+    public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
       return null;
     }
 
