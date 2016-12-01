@@ -1475,7 +1475,7 @@ public class FacetComponent extends SearchComponent {
       if (rawTarget != null) {
         this.target = new ShardFacetCount();
         boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, this.targetDoc != null && !this.targetDoc.isEmpty());
-        boolean appendDoc = targetStrict && this.target != null;
+        boolean appendDoc = targetStrict && this.targetDoc != null;
         if (ftype instanceof MultiSerializable) {
           try {
             this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field, appendDoc).utf8ToString();
