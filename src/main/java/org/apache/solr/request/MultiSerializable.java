@@ -44,5 +44,7 @@ public interface MultiSerializable {
 
   BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException;
 
+  BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName, boolean appendExtraDelim) throws IOException;
+
   String getDelim();
 }

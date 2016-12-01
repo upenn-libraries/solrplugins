@@ -98,6 +98,11 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
 
   @Override
   public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName) throws IOException {
+    return normalizeQueryTarget(val, strict, fieldName, false);
+  }
+
+  @Override
+  public BytesRef normalizeQueryTarget(String val, boolean strict, String fieldName, boolean appendExtraDelim) throws IOException {
     TokenStream ts = getQueryAnalyzer().tokenStream(fieldName, val);
     try {
       ts.reset();
@@ -108,7 +113,7 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
         if (matchType.equals(typeAtt.type())) {
           BytesRefBuilder ret = new BytesRefBuilder();
           ret.copyChars(termAtt.toString());
-          if (!strict) {
+          if (!strict || appendExtraDelim) {
             ret.append(delimBytes, 0, delimBytes.length);
           }
           return ret.get();

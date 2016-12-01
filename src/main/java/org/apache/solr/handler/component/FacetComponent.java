@@ -1475,16 +1475,17 @@ public class FacetComponent extends SearchComponent {
       if (rawTarget != null) {
         this.target = new ShardFacetCount();
         boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, this.targetDoc != null && !this.targetDoc.isEmpty());
+        boolean appendDoc = targetStrict && this.target != null;
         if (ftype instanceof MultiSerializable) {
           try {
-            this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field).utf8ToString();
+            this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field, appendDoc).utf8ToString();
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
         } else {
           this.target.indexed = rawTarget;
         }
-        if (targetStrict && this.targetDoc != null) {
+        if (appendDoc) {
           this.target.indexed = this.target.indexed.concat(this.targetDoc);
         }
       }
