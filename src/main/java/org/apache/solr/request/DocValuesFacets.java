@@ -257,6 +257,9 @@ public class DocValuesFacets {
           int targetIdx = (int)si.lookupTerm(target);
           Env env;
           if (targetDoc != null) {
+            if (targetIdx < 0) {
+              targetDoc = "";
+            }
             env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
                 ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, fieldName, ft, res, fl);
           } else {
