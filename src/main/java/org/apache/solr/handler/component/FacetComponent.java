@@ -803,6 +803,10 @@ public class FacetComponent extends SearchComponent {
 
     } // end for-each-response-in-shard-request...
     
+    for (DistribFieldFacet dff : fi.facets.values()) {
+      dff.finish();
+    }
+
     // refine each pivot based on the new shard data
     for (Entry<String,PivotFacet> pivotFacet : fi.pivotFacets) {
       pivotFacet.getValue().queuePivotRefinementRequests();
@@ -1511,6 +1515,7 @@ public class FacetComponent extends SearchComponent {
     // a bitset for each shard, keeping track of which terms seen
     public FixedBitSet[] counted; 
     public HashMap<String,ShardFacetCount> counts = new HashMap<>(128);
+    public HashMap<String,TermMetadataEntry> termsMetadata;
     public int termNum;
     
     public int initialLimit; // how many terms requested in first phase
@@ -1528,6 +1533,7 @@ public class FacetComponent extends SearchComponent {
       missingMax = new long[rb.shards.length];
       counted = new FixedBitSet[rb.shards.length];
       fPayload = ftype instanceof FacetPayload ? (FacetPayload) ftype : null;
+      termsMetadata = targetDoc == null ? null : new HashMap<>(128);
     }
     
     protected void fillParams(ResponseBuilder rb, SolrParams params, String field) {
@@ -1541,6 +1547,26 @@ public class FacetComponent extends SearchComponent {
       = params.getFieldBool(field, FacetParams.FACET_DISTRIB_MCO, false);
     }
     
+    private static class TermMetadataEntry {
+      private long count;
+      private final NamedList<Object> termMetadata;
+      private final List<ShardFacetCount> sfcs = new ArrayList<>(2);
+
+      private TermMetadataEntry(long initCount, NamedList<Object> termMetadata, ShardFacetCount add) {
+        this.termMetadata = termMetadata;
+        update(initCount, add);
+      }
+
+      private void update(long addCount, ShardFacetCount add) {
+        count += addCount;
+        sfcs.add(add);
+      }
+
+      private void update(ShardFacetCount add) {
+        sfcs.add(add);
+      }
+    }
+
     void add(int shardNum, NamedList shardCounts, int numRequested) {
       // shardCounts could be null if there was an exception
       int sz = shardCounts == null ? 0 : shardCounts.size();
@@ -1555,7 +1581,10 @@ public class FacetComponent extends SearchComponent {
         long count;
         Object val;
         TermDocIterator tdi = null;
-        TermDocEntry next;
+        TermDocEntry next = null;
+        String term = name;
+        TermMetadataEntry termMetadataEntry = null;
+        boolean registeredTerm = false;
         if (fPayload != null) {
           Object rawVal = shardCounts.getVal(i);
           if (rawVal instanceof Number) {
@@ -1577,10 +1606,12 @@ public class FacetComponent extends SearchComponent {
               val = null;
               count = docs.size();
             } else {
-              tdi = new TermDocIterator(name, delim, docs.iterator(), (NamedList<Object>)termEntry.get("termMetadata"));
+              termMetadataEntry = termsMetadata.get(name);
+              NamedList<Object> termMetadata = (NamedList<Object>)termEntry.get("termMetadata");
+              tdi = new TermDocIterator(name, delim, docs.iterator(), termMetadata);
               val = next = tdi.next();
               name = next.termDocId;
-              count = 1;
+              count = fPayload.extractCount(termMetadata);
             }
           }
         } else {
@@ -1600,12 +1631,32 @@ public class FacetComponent extends SearchComponent {
               sfc.termNum = termNum++;
               sfc.val = val;
               counts.put(name, sfc);
-            } else if (extend && fPayload != null) {
-              sfc.val = fPayload.mergePayload(sfc.val, val, sfc.count, count);
             }
-            incCount(sfc, count);
             terms.set(sfc.termNum);
-            last = count;
+            if (!registeredTerm) {
+              registeredTerm = true;
+              incCount(sfc, count);
+              if (extend && fPayload != null) {
+                if (tdi == null) {
+                  if (sfc.val != val) {
+                    fPayload.mergePayload(sfc.val, val, sfc.count, count);
+                  }
+                } else {
+                  if (termMetadataEntry == null) {
+                    termMetadataEntry = new TermMetadataEntry(count, next.termMetadata, sfc);
+                    termsMetadata.put(term, termMetadataEntry);
+                  } else {
+                    fPayload.mergePayload(termMetadataEntry.termMetadata, next.termMetadata, termMetadataEntry.count, count);
+                    next.termMetadata = termMetadataEntry.termMetadata;
+                    termMetadataEntry.update(count, sfc);
+                  }
+                }
+              }
+              last = count;
+            } else if (extend && fPayload != null && tdi != null) {
+              termMetadataEntry.update(sfc);
+              next.termMetadata = termMetadataEntry.termMetadata;
+            }
           }
         } while (tdi != null && tdi.hasNext()
             && assign(true, val = next = tdi.next(), name = next.termDocId));
@@ -1620,6 +1671,16 @@ public class FacetComponent extends SearchComponent {
       missingMaxPossible += last;
       missingMax[shardNum] = last;
       counted[shardNum] = terms;
+    }
+
+    private void finish() {
+      if (termsMetadata != null) {
+        for (TermMetadataEntry tme : termsMetadata.values()) {
+          for (ShardFacetCount sfc : tme.sfcs) {
+            sfc.count = tme.count;
+          }
+        }
+      }
     }
 
     protected void incCount(ShardFacetCount sfc, long count) {
@@ -1680,38 +1741,9 @@ public class FacetComponent extends SearchComponent {
         = counts.values().toArray(new ShardFacetCount[counts.size()]);
       Arrays.sort(arr, (o1, o2) -> o1.indexed.compareTo(o2.indexed));
       countSorted = arr;
-      mergeTermMetadata(arr);
       return arr;
     }
     
-    public void mergeTermMetadata(ShardFacetCount[] arr) {
-      if (extend && arr.length > 1 && fPayload != null) {
-        ShardFacetCount lastSfc = arr[0];
-        if (lastSfc.val != null && lastSfc.val instanceof TermDocEntry) {
-          TermDocEntry last = (TermDocEntry)lastSfc.val;
-          if (last.termMetadata != null) {
-            NamedList<Object> lastAdd = null;
-            for (int i = 1; i < arr.length; i++) {
-              TermDocEntry next = (TermDocEntry)arr[i].val;
-              if (lastAdd == next.termMetadata) {
-                // already merged
-                next.termMetadata = last.termMetadata;
-              } else if (last.term.equals(next.term) && last.termMetadata != next.termMetadata) {
-                lastAdd = next.termMetadata;
-                long existingCount = fPayload.extractCount(last.termMetadata);
-                long addCount = fPayload.extractCount(lastAdd);
-                NamedList<Object> merged = (NamedList<Object>)fPayload.mergePayload(last.termMetadata, lastAdd,
-                    existingCount, addCount);
-                last.termMetadata = merged;
-                next.termMetadata = merged;
-              }
-              last = next;
-            }
-          }
-        }
-      }
-    }
-
     public ShardFacetCount[] getCountSorted() {
       ShardFacetCount[] arr 
         = counts.values().toArray(new ShardFacetCount[counts.size()]);
