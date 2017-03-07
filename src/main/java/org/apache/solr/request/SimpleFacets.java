@@ -50,12 +50,13 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.FilterCollector;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.grouping.AbstractAllGroupHeadsCollector;
+import org.apache.lucene.search.grouping.AllGroupHeadsCollector;
 import org.apache.lucene.search.grouping.term.TermAllGroupsCollector;
 import org.apache.lucene.search.grouping.term.TermGroupFacetCollector;
 import org.apache.lucene.util.BytesRef;
@@ -287,7 +288,7 @@ public class SimpleFacets {
       } else {
         return base;
       }
-      AbstractAllGroupHeadsCollector allGroupHeadsCollector = grouping.getCommands().get(0).createAllGroupCollector();
+      AllGroupHeadsCollector allGroupHeadsCollector = grouping.getCommands().get(0).createAllGroupCollector();
       searcher.search(base.getTopFilter(), allGroupHeadsCollector);
       return new BitDocSet(allGroupHeadsCollector.retrieveGroupHeads(searcher.maxDoc()));
     } else {
@@ -674,21 +675,10 @@ public class SimpleFacets {
     BytesRef prefixBytesRef = prefix != null ? new BytesRef(prefix) : null;
     final TermGroupFacetCollector collector = TermGroupFacetCollector.createTermGroupFacetCollector(groupField, field, multiToken, prefixBytesRef, 128);
     
-    SchemaField sf = searcher.getSchema().getFieldOrNull(groupField);
-    
-    if (sf != null && sf.hasDocValues() == false && sf.multiValued() == false && sf.getType().getNumericType() != null) {
-      // it's a single-valued numeric field: we must currently create insanity :(
-      // there isn't a GroupedFacetCollector that works on numerics right now...
-      searcher.search(base.getTopFilter(), new FilterCollector(collector) {
-        @Override
-        public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
-          LeafReader insane = Insanity.wrapInsanity(context.reader(), groupField);
-          return in.getLeafCollector(insane.getContext());
-        }
-      });
-    } else {
-      searcher.search(base.getTopFilter(), collector);
-    }
+    Collector groupWrapper = getInsanityWrapper(groupField, collector);
+    Collector fieldWrapper = getInsanityWrapper(field, groupWrapper);
+    // When GroupedFacetCollector can handle numerics we can remove the wrapped collectors
+    searcher.search(base.getTopFilter(), fieldWrapper);
     
     boolean orderByCount = sort.equals(FacetParams.FACET_SORT_COUNT) || sort.equals(FacetParams.FACET_SORT_COUNT_LEGACY);
     TermGroupFacetCollector.GroupedFacetResult result 
@@ -715,6 +705,23 @@ public class SimpleFacets {
     }
 
     return facetCounts;
+  }
+  
+  private Collector getInsanityWrapper(final String field, Collector collector) {
+    SchemaField sf = searcher.getSchema().getFieldOrNull(field);
+    if (sf != null && !sf.hasDocValues() && !sf.multiValued() && sf.getType().getNumericType() != null) {
+      // it's a single-valued numeric field: we must currently create insanity :(
+      // there isn't a GroupedFacetCollector that works on numerics right now...
+      return new FilterCollector(collector) {
+        @Override
+        public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
+          LeafReader insane = Insanity.wrapInsanity(context.reader(), field);
+          return in.getLeafCollector(insane.getContext());
+        }
+      };
+    } else {
+      return collector;
+    }
   }
 
 
