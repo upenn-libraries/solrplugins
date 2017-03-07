@@ -3,6 +3,8 @@
 BASE_DIR="$(cd "$(dirname "$0")" && pwd -L)"
 SOLR_UPSTREAM_BASE="solr-upstream-base"
 
+specific_ref="$1"
+
 cd "$BASE_DIR"
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -12,9 +14,13 @@ if [ "$current_branch" != "$SOLR_UPSTREAM_BASE" ]; then
   exit 1
 fi
 
-latest_tag=$(git ls-remote --tags git@github.com:apache/lucene-solr.git 'refs/tags/releases/lucene-solr/*' | grep -v '\^' | sort -t '/' -k 3 -V | tail -n 1)
+if [ -n "$specific_ref" ]; then
+  ref="releases/lucene-solr/$specific_ref"
+else
+  latest_tag=$(git ls-remote --tags git@github.com:apache/lucene-solr.git 'refs/tags/releases/lucene-solr/*' | grep -v '\^' | sort -t '/' -k 3 -V | tail -n 1)
 
-ref="${latest_tag##*refs/tags/}"
+  ref="${latest_tag##*refs/tags/}"
+fi
 
 while read file; do
   mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
