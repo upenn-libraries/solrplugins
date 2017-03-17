@@ -2,8 +2,10 @@ package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
 import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.Bits;
@@ -152,15 +154,20 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     }
 
     NamedList<Object> refs = new NamedList<>();
+    Set<BytesRef> trackDuplicates = new HashSet<>();
 
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
       if (liveDocs != null && !liveDocs.get(postings.docID())) {
         continue;
       }
+      trackDuplicates.clear();
       for (int j = 0; j < postings.freq(); j++) {
         postings.nextPosition();
 
         BytesRef payload = postings.getPayload();
+        if (!trackDuplicates.add(payload)) {
+          continue;
+        }
         if (payload != null) {
           String payloadStr = payload.utf8ToString();
           int pos = payloadStr.indexOf(JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR);
