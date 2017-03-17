@@ -154,7 +154,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     NamedList<Object> refs = new NamedList<>();
 
     while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-      if (liveDocs == null || !liveDocs.get(postings.docID())) {
+      if (liveDocs != null && !liveDocs.get(postings.docID())) {
         continue;
       }
       for (int j = 0; j < postings.freq(); j++) {
