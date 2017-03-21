@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -93,9 +94,9 @@ public class DocBasedFacetResponseBuilder {
 
     public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms,
         String contains, boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend,
-        SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, String fieldName, T ft, NamedList res, Set<String> fl) {
+        SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res, Set<String> fl) {
       super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
-          charsRef, extend, si, searcher, fieldName, ft, res);
+          charsRef, extend, si, searcher, leaves, fieldName, ft, res);
       SchemaField uniqueKeyField = searcher.getSchema().getUniqueKeyField();
       this.targetDoc = new BytesRef(targetDoc);
       this.idField = uniqueKeyField.getName();
@@ -256,10 +257,7 @@ public class DocBasedFacetResponseBuilder {
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
         NamedList<Object> termEntry = new NamedList<>(4);
         if (extend) {
-          LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
-          Bits liveDocs = slowAtomicReader.getLiveDocs();
-          PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
-          Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, postings, liveDocs);
+          Entry<String, Object> entry = ft.addEntry(currentTerm, currentTermCount, currentFieldTerm, leaves);
           if (entry != null) {
             termEntry.add("termMetadata", entry.getValue());
           }

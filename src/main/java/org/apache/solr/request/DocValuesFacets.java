@@ -17,6 +17,8 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
@@ -28,7 +30,6 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiDocValues.MultiSortedDocValues;
 import org.apache.lucene.index.MultiDocValues.MultiSortedSetDocValues;
 import org.apache.lucene.index.MultiDocValues.OrdinalMap;
-import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.Term;
@@ -38,6 +39,7 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRefBuilder;
+import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.LongValues;
 import org.apache.lucene.util.UnicodeUtil;
 import org.apache.solr.common.params.FacetParams;
@@ -67,6 +69,53 @@ import org.apache.solr.util.LongPriorityQueue;
  */
 public class DocValuesFacets {
   private DocValuesFacets() {}
+  
+  private static class BitsBuilderDocIdSetIterator extends DocIdSetIterator {
+
+    private final DocIdSetIterator backing;
+    private final FixedBitSet bits;
+    private boolean finished = false;
+
+    public BitsBuilderDocIdSetIterator(DocIdSetIterator backing, FixedBitSet bits) {
+      this.backing = backing;
+      this.bits = bits;
+    }
+    
+    public Bits getBits() {
+      if (!finished) {
+        throw new IllegalStateException();
+      } else {
+        return bits;
+      }
+    }
+    
+    @Override
+    public int docID() {
+      return backing.docID();
+    }
+
+    @Override
+    public int nextDoc() throws IOException {
+      int ret = backing.nextDoc();
+      if (ret != DocIdSetIterator.NO_MORE_DOCS) {
+        bits.set(ret);
+      } else {
+        finished = true;
+      }
+      return ret;
+    }
+
+    @Override
+    public int advance(int target) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long cost() {
+      return backing.cost();
+    }
+    
+  }
   
   public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug, boolean external, Set<String> fl) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
@@ -134,6 +183,7 @@ public class DocValuesFacets {
       }
 
       Filter filter = docs.getTopFilter();
+      List<Entry<LeafReader, Bits>> tmp = extend ? new ArrayList<>() : null;
       List<LeafReaderContext> leaves = searcher.getTopReaderContext().leaves();
       for (int subIndex = 0; subIndex < leaves.size(); subIndex++) {
         LeafReaderContext leaf = leaves.get(subIndex);
@@ -143,6 +193,12 @@ public class DocValuesFacets {
           disi = dis.iterator();
         }
         if (disi != null) {
+          if (extend) {
+            LeafReader reader = leaf.reader();
+            FixedBitSet bits = new FixedBitSet(reader.maxDoc() + 1);
+            disi = new BitsBuilderDocIdSetIterator(disi, bits);
+            tmp.add(new SimpleImmutableEntry<>(reader, bits));
+          }
           if (multiValued) {
             SortedSetDocValues sub = leaf.reader().getSortedSetDocValues(fieldName);
             if (sub == null) {
@@ -217,7 +273,7 @@ public class DocValuesFacets {
           int tnum = Integer.MAX_VALUE - (int)pair;
           final BytesRef term = si.lookupOrd(startTermIndex+tnum);
           ft.indexedToReadable(term, charsRef);
-          if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+          if (!(extend && addEntry(tmp, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
             res.add(charsRef.toString(), c);
           }
         }
@@ -250,7 +306,7 @@ public class DocValuesFacets {
             term = si.lookupOrd(startTermIndex+i);
           }
           ft.indexedToReadable(term, charsRef);
-          if (!(extend && addEntry(searcher, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
+          if (!(extend && addEntry(tmp, fieldName, (FieldType & FacetPayload)ft, charsRef, term, res, c))) {
             res.add(charsRef.toString(), c);
           }
         }
@@ -262,10 +318,10 @@ public class DocValuesFacets {
               targetDoc = "";
             }
             env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
-                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, fieldName, ft, res, fl);
+                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, tmp, fieldName, ft, res, fl);
           } else {
             env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains,
-                ignoreCase, mincount, counts, charsRef, extend, si, searcher, fieldName, ft, res);
+                ignoreCase, mincount, counts, charsRef, extend, si, searcher, tmp, fieldName, ft, res);
           }
           termVals = BidirectionalFacetResponseBuilder.build(env, targetDoc != null);
         }
@@ -285,20 +341,14 @@ public class DocValuesFacets {
     lst.add(name, val);
   }
 
-  private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
+  private static <T extends FieldType & FacetPayload> boolean addEntry(List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, NamedList<Integer> res, int count) throws IOException {
-    LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
-    Bits liveDocs = slowAtomicReader.getLiveDocs();
-    PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
-    return ft.addEntry(val.toString(), count, postings, liveDocs, res);
+    return ft.addEntry(val.toString(), count, new Term(fieldName, term), leaves, res);
   }
 
-  private static <T extends FieldType & FacetPayload> boolean addEntry(SolrIndexSearcher searcher, String fieldName, T ft,
+  private static <T extends FieldType & FacetPayload> boolean addEntry(List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft,
       CharsRefBuilder val, BytesRef term, Deque<Entry<String, Object>> res, int count, boolean addFirst) throws IOException {
-    LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
-    Bits liveDocs = slowAtomicReader.getLiveDocs();
-    PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, term), PostingsEnum.PAYLOADS);
-    Entry<String, Object> entry = ft.addEntry(val.toString(), count, postings, liveDocs);
+    Entry<String, Object> entry = ft.addEntry(val.toString(), count, new Term(fieldName, term), leaves);
     if (entry == null) {
       return false;
     }

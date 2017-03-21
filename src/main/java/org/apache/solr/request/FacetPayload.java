@@ -17,8 +17,10 @@
 package org.apache.solr.request;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map.Entry;
-import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.util.Bits;
 import org.apache.solr.common.util.NamedList;
 
@@ -28,8 +30,8 @@ import org.apache.solr.common.util.NamedList;
  */
 public interface FacetPayload<T> {
   long extractCount(T val);
-  boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList<T> res) throws IOException;
-  Entry<String, T> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException;
+  boolean addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves, NamedList<T> res) throws IOException;
+  Entry<String, T> addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves) throws IOException;
   T mergePayload(T preExisting, T add, long preExistingCount, long addCount);
   Object updateValueExternalRepresentation(T internal);
 }

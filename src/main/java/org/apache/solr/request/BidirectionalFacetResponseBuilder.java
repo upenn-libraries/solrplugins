@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map.Entry;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
@@ -34,6 +35,7 @@ import org.apache.solr.handler.component.FacetComponent.DistribFieldFacet.TermDo
 import org.apache.solr.handler.component.FacetComponent.ShardFacetCount;
 import org.apache.solr.request.BidirectionalFacetResponseBuilder.FacetKey;
 import org.apache.solr.schema.FieldType;
+import org.apache.solr.search.DocSet;
 import org.apache.solr.search.SolrIndexSearcher;
 
 /**
@@ -711,14 +713,16 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     protected final boolean extend;
     protected final SortedSetDocValues si;
     protected final SolrIndexSearcher searcher;
+    protected final List<Entry<LeafReader, Bits>> leaves;
     
     protected long currentTermCount;
     protected BytesRef currentTermBytes;
     protected String currentTerm;
+    protected Term currentFieldTerm;
     
     public LocalEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
-        SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
+        SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
       super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       if (startTermIndex == -1) {
         // weird case where missing is counted at counts[0].
@@ -740,6 +744,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       this.extend = extend;
       this.si = si;
       this.searcher = searcher;
+      this.leaves = leaves;
     }
     
     protected boolean acceptTerm(int index) {
@@ -760,6 +765,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       ft.indexedToReadable(currentTermBytes, charsRef);
       currentTerm = charsRef.toString();
       currentTermCount = c;
+      currentFieldTerm = new Term(fieldName, currentTermBytes);
       return true;
     }
   }
@@ -768,9 +774,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     public BaseLocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
-        SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
+        SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
       super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
-          charsRef, extend, si, searcher, fieldName, ft, res);
+          charsRef, extend, si, searcher, leaves, fieldName, ft, res);
     }
 
     protected final int incrementTermIndex(int lastKeyIndex) {
@@ -813,9 +819,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     public LocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
         boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
-        SolrIndexSearcher searcher, String fieldName, T ft, NamedList res) {
+        SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
       super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
-          charsRef, extend, si, searcher, fieldName, ft, res);
+          charsRef, extend, si, searcher, leaves, fieldName, ft, res);
     }
 
     @Override
@@ -847,10 +853,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (!extend) {
         entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
       } else {
-        LeafReader slowAtomicReader = searcher.getSlowAtomicReader();
-        Bits liveDocs = slowAtomicReader.getLiveDocs();
-        PostingsEnum postings = slowAtomicReader.postings(new Term(fieldName, currentTermBytes), PostingsEnum.PAYLOADS);
-        if ((entry = ft.addEntry(currentTerm, currentTermCount, postings, liveDocs)) == null) {
+        if ((entry = ft.addEntry(currentTerm, currentTermCount, currentFieldTerm, leaves)) == null) {
           entry = new SimpleImmutableEntry<>(currentTerm, currentTermCount);
         }
       }

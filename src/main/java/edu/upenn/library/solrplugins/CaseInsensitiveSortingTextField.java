@@ -16,16 +16,16 @@
 package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
@@ -42,7 +42,7 @@ import org.apache.solr.schema.TextField;
  *
  * @author michael
  */
-public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload {
+public class CaseInsensitiveSortingTextField extends TextField implements MultiSerializable, FacetPayload<Object> {
 
   private static final String NORMALIZED_TOKEN_TYPE = "normalized";
   private static final String RAW_TOKEN_TYPE = "filing";
@@ -230,13 +230,13 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   }
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
-    return payloadHandler.addEntry(termKey, count, postings, liveDocs, res);
+  public boolean addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves, NamedList<Object> res) throws IOException {
+    return payloadHandler.addEntry(termKey, count, term, leaves, res);
   }
 
   @Override
-  public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
-    return payloadHandler.addEntry(termKey, count, postings, liveDocs);
+  public Entry<String, Object> addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves) throws IOException {
+    return payloadHandler.addEntry(termKey, count, term, leaves);
   }
 
   @Override
@@ -257,12 +257,12 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
   private static class DefaultPayloadHandler implements FacetPayload<Object> {
 
     @Override
-    public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList<Object> res) throws IOException {
+    public boolean addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves, NamedList<Object> res) throws IOException {
       return false;
     }
 
     @Override
-    public Entry<String, Object> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+    public Entry<String, Object> addEntry(String termKey, long count, Term term, List<Entry<LeafReader, Bits>> leaves) throws IOException {
       return null;
     }
 

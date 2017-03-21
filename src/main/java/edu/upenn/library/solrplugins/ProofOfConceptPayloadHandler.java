@@ -17,8 +17,12 @@ package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.solr.common.util.NamedList;
@@ -31,31 +35,35 @@ import org.apache.solr.request.FacetPayload;
 public class ProofOfConceptPayloadHandler implements FacetPayload<NamedList<Object>> {
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
-    res.add(termKey, buildEntryValue(count, postings, liveDocs));
+  public boolean addEntry(String termKey, long count, Term t, List<Entry<LeafReader, Bits>> leaves, NamedList<NamedList<Object>> res) throws IOException {
+    res.add(termKey, buildEntryValue(count, t, leaves));
     return true;
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
-    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, postings, liveDocs));
+  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, Term t, List<Entry<LeafReader, Bits>> leaves) throws IOException {
+    return new SimpleImmutableEntry<>(termKey, buildEntryValue(count, t, leaves));
   }
 
-  private NamedList<Object> buildEntryValue(long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+  private NamedList<Object> buildEntryValue(long count, Term t, List<Entry<LeafReader, Bits>> leaves) throws IOException {
     NamedList<Object> entry = new NamedList<>();
     entry.add("count", count);
     int i = -1;
-    while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-      if (!liveDocs.get(postings.docID())) {
-        continue;
-      }
-      i++;
-      NamedList<Object> documentEntry = new NamedList<>();
-      entry.add("doc" + i, documentEntry);
-      for (int j = 0; j < postings.freq(); j++) {
-        postings.nextPosition();
-        String extra = postings.getPayload().utf8ToString();
-        documentEntry.add("position" + j, extra);
+    for (Entry<LeafReader, Bits> e : leaves) {
+      PostingsEnum postings = e.getKey().postings(t, PostingsEnum.PAYLOADS);
+      Bits liveDocs = e.getValue();
+      while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+        if (!liveDocs.get(postings.docID())) {
+          continue;
+        }
+        i++;
+        NamedList<Object> documentEntry = new NamedList<>();
+        entry.add("doc" + i, documentEntry);
+        for (int j = 0; j < postings.freq(); j++) {
+          postings.nextPosition();
+          String extra = postings.getPayload().utf8ToString();
+          documentEntry.add("position" + j, extra);
+        }
       }
     }
     return entry;

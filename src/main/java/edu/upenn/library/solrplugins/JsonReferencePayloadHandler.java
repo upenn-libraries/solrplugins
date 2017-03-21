@@ -1,12 +1,16 @@
 package edu.upenn.library.solrplugins;
 
 import java.io.IOException;
-import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
@@ -123,22 +127,22 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
   }
 
   @Override
-  public boolean addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs, NamedList res) throws IOException {
+  public boolean addEntry(String termKey, long count, Term t, List<Entry<LeafReader, Bits>> leaves, NamedList<NamedList<Object>> res) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
 
-    NamedList<Object> entry = buildEntryValue(term, count, postings, liveDocs);
+    NamedList<Object> entry = buildEntryValue(term, count, t, leaves);
 
     res.add(term.getDisplay(), entry);
     return true;
   }
 
   @Override
-  public Map.Entry<String, NamedList<Object>> addEntry(String termKey, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+  public Entry<String, NamedList<Object>> addEntry(String termKey, long count, Term t, List<Entry<LeafReader, Bits>> leaves) throws IOException {
     MultiPartString term = MultiPartString.parseNormalizedFilingAndPrefix(termKey);
-    return new AbstractMap.SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, postings, liveDocs));
+    return new SimpleImmutableEntry<>(termKey, buildEntryValue(term, count, t, leaves));
   }
 
-  private NamedList<Object> buildEntryValue(MultiPartString term, long count, PostingsEnum postings, Bits liveDocs) throws IOException {
+  private NamedList<Object> buildEntryValue(MultiPartString term, long count, Term t, List<Entry<LeafReader, Bits>> leaves) throws IOException {
     NamedList<Object> entry = new NamedList<>();
 
     // document count for this term
@@ -156,51 +160,58 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     NamedList<Object> refs = new NamedList<>();
     Set<BytesRef> trackDuplicates = new HashSet<>();
 
-    while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-      if (liveDocs != null && !liveDocs.get(postings.docID())) {
+    for (Entry<LeafReader, Bits> e : leaves) {
+      PostingsEnum postings = e.getKey().postings(t, PostingsEnum.PAYLOADS);
+      if (postings == null) {
         continue;
       }
-      trackDuplicates.clear();
-      for (int j = 0; j < postings.freq(); j++) {
-        postings.nextPosition();
-
-        BytesRef payload = postings.getPayload();
-        if (!trackDuplicates.add(payload)) {
+      Bits liveDocs = e.getValue();
+      while (postings.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+        if (liveDocs != null && !liveDocs.get(postings.docID())) {
           continue;
         }
-        if (payload != null) {
-          String payloadStr = payload.utf8ToString();
-          int pos = payloadStr.indexOf(JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR);
-          if (pos != -1) {
-            String referenceType = payloadStr.substring(0, pos);
-            String target = payloadStr.substring(pos + 1);
+        trackDuplicates.clear();
+        for (int j = 0; j < postings.freq(); j++) {
+          postings.nextPosition();
 
-            MultiPartString multiPartString = MultiPartString.parseFilingAndPrefix(target);
-            String displayName = multiPartString.getDisplay();
-
-            NamedList<Object> displayNameStructs = getOrCreateNamedListValue(refs, referenceType);
-
-            NamedList<Object> nameStruct = getOrCreateNamedListValue(displayNameStructs, displayName);
-
-            incrementLongInNamedList(nameStruct, KEY_COUNT);
-
-            overwriteInNamedList(nameStruct, KEY_FILING, multiPartString.getFiling());
-            if(multiPartString.getPrefix() != null) {
-              overwriteInNamedList(nameStruct, KEY_PREFIX, multiPartString.getPrefix());
-            }
+          BytesRef payload = postings.getPayload();
+          if (!trackDuplicates.add(payload)) {
+            continue;
           }
-        } else {
-          // no payload means term is for self, so increment count
-          incrementLongInNamedList(self, KEY_COUNT);
-        }
+          if (payload != null) {
+            String payloadStr = payload.utf8ToString();
+            int pos = payloadStr.indexOf(JsonReferencePayloadTokenizer.PAYLOAD_ATTR_SEPARATOR);
+            if (pos != -1) {
+              String referenceType = payloadStr.substring(0, pos);
+              String target = payloadStr.substring(pos + 1);
+
+              MultiPartString multiPartString = MultiPartString.parseFilingAndPrefix(target);
+              String displayName = multiPartString.getDisplay();
+
+              NamedList<Object> displayNameStructs = getOrCreateNamedListValue(refs, referenceType);
+
+              NamedList<Object> nameStruct = getOrCreateNamedListValue(displayNameStructs, displayName);
+
+              incrementLongInNamedList(nameStruct, KEY_COUNT);
+
+              overwriteInNamedList(nameStruct, KEY_FILING, multiPartString.getFiling());
+              if (multiPartString.getPrefix() != null) {
+                overwriteInNamedList(nameStruct, KEY_PREFIX, multiPartString.getPrefix());
+              }
+            }
+          } else {
+            // no payload means term is for self, so increment count
+            incrementLongInNamedList(self, KEY_COUNT);
+          }
 
         // Couldn't get this to work: postings.attributes() doesn't return anything: why?
         /*
-        ReferenceAttribute refAtt = postings.attributes().getAttribute(ReferenceAttribute.class);
-        if(refAtt != null) {
-          System.out.println("found refAttr, " + refAtt.getReferenceType() + "," + refAtt.getTarget());
+           ReferenceAttribute refAtt = postings.attributes().getAttribute(ReferenceAttribute.class);
+           if(refAtt != null) {
+           System.out.println("found refAttr, " + refAtt.getReferenceType() + "," + refAtt.getTarget());
+           }
+           */
         }
-        */
       }
     }
 
