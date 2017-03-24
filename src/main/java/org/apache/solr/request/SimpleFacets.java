@@ -108,6 +108,9 @@ import org.apache.solr.util.RTimer;
  */
 public class SimpleFacets {
   
+  public static final String PERSEG_FACET_CACHE_THRESHOLD_ARGNAME = "perSegFacetCacheThreshold";
+  private static final int DEFAULT_PERSEG_FACET_CACHE_THRESHOLD = 5000;
+
   /** The main set of documents all facet counts should be relative to */
   protected DocSet docsOrig;
   /** Configuration params behavior should be driven by */
@@ -553,7 +556,19 @@ public class SimpleFacets {
         case FC:
           boolean external = params.getBool("distrib", true);
           Set<String> fl = rb.rsp.getReturnFields().getRequestedFieldNames();
-          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug, external, fl);
+          //TODO figure out why this is not working! make externally configurable
+          Object thresholdArg = sf.getNamedPropertyValues(true).get(PERSEG_FACET_CACHE_THRESHOLD_ARGNAME);
+          int threshold;
+          if (thresholdArg == null) {
+            threshold = DEFAULT_PERSEG_FACET_CACHE_THRESHOLD;
+          } else if (thresholdArg instanceof String) {
+            threshold = Integer.parseUnsignedInt((String) thresholdArg);
+          } else if (thresholdArg instanceof Number) {
+            threshold = ((Number) thresholdArg).intValue();
+          } else {
+            threshold = DEFAULT_PERSEG_FACET_CACHE_THRESHOLD;
+          }
+          counts = DocValuesFacets.getCounts(searcher, rb, threshold, docs, field, offset,limit, mincount, missing, sort, prefix, contains, extend, targetBr, targetDoc, ignoreCase, fdebug, external, fl);
           break;
         default:
           throw new AssertionError();
