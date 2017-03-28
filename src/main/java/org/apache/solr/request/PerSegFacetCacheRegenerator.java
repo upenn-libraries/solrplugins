@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.solr.request.DocValuesFacets.SegmentCacheEntry;
 import org.apache.solr.search.CacheRegenerator;
 import org.apache.solr.search.SolrCache;
 import org.apache.solr.search.SolrIndexSearcher;
@@ -55,12 +56,12 @@ public class PerSegFacetCacheRegenerator implements CacheRegenerator {
         }
       }
     }
-    Map<String, Map<Object, byte[]>> oldFieldsCache = (Map<String, Map<Object, byte[]>>)oldVal;
-    Map<String, Map<Object, byte[]>> newFieldsCache = new HashMap<>(oldFieldsCache.size());
-    for (Map.Entry<String, Map<Object, byte[]>> e : oldFieldsCache.entrySet()) {
-      Map<Object, byte[]> oldSegmentCache = e.getValue();
-      Map<Object, byte[]> newSegmentCache = new HashMap<>(e.getValue());
-      for (Map.Entry<Object, byte[]> e1 : oldSegmentCache.entrySet()) {
+    Map<String, Map<Object, SegmentCacheEntry>> oldFieldsCache = (Map<String, Map<Object, SegmentCacheEntry>>)oldVal;
+    Map<String, Map<Object, SegmentCacheEntry>> newFieldsCache = new HashMap<>(oldFieldsCache.size());
+    for (Map.Entry<String, Map<Object, SegmentCacheEntry>> e : oldFieldsCache.entrySet()) {
+      Map<Object, SegmentCacheEntry> oldSegmentCache = e.getValue();
+      Map<Object, SegmentCacheEntry> newSegmentCache = new HashMap<>(e.getValue());
+      for (Map.Entry<Object, SegmentCacheEntry> e1 : oldSegmentCache.entrySet()) {
         Object segmentKey = e1.getKey();
         if (segmentKeys.contains(segmentKey)) {
           newSegmentCache.put(segmentKey, e1.getValue());

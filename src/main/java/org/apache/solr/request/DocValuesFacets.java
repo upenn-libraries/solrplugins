@@ -80,12 +80,22 @@ public class DocValuesFacets {
   
   private static final String PERSEG_FACET_CACHE_NAME = "perSegFacetCache";
 
-  private static class SegmentCacheEntry {
+  static class SegmentCacheEntry {
     private final byte[] counts;
     private final Bits bits;
+    private final int[] topLevelCounts;
+    private final List<Entry<LeafReader, Bits>> leafBits;
     public SegmentCacheEntry(byte[] counts, Bits bits) {
-      this.bits = bits;
       this.counts = counts;
+      this.bits = bits;
+      this.topLevelCounts = null;
+      this.leafBits = null;
+    }
+    public SegmentCacheEntry(int[] topLevelCounts, List<Entry<LeafReader, Bits>> leafBits) {
+      this.counts = null;
+      this.bits = null;
+      this.topLevelCounts = topLevelCounts;
+      this.leafBits = leafBits;
     }
   }
 
@@ -216,13 +226,20 @@ public class DocValuesFacets {
 
       // count collection array only needs to be as big as the number of terms we are
       // going to collect counts for.
-      final int[] counts = new int[nTerms];
+      final int[] counts;
       if (fdebug != null) {
         fdebug.putInfoItem("numBuckets", nTerms);
       }
 
       Filter filter = docs.getTopFilter();
-      List<Entry<LeafReader, Bits>> tmp = extend ? new ArrayList<>() : null;
+      List<Entry<LeafReader, Bits>> tmp;
+      SegmentCacheEntry topLevelCacheEntry;
+      if (segmentCache != null && (topLevelCacheEntry = segmentCache.get(searcher)) != null) {
+        counts = topLevelCacheEntry.topLevelCounts;
+        tmp = extend ? topLevelCacheEntry.leafBits : null;
+      } else {
+      counts = new int[nTerms];
+      tmp = extend ? new ArrayList<>() : null;
       List<LeafReaderContext> leaves = searcher.getTopReaderContext().leaves();
       for (int subIndex = 0; subIndex < leaves.size(); subIndex++) {
         LeafReaderContext leaf = leaves.get(subIndex);
@@ -244,9 +261,8 @@ public class DocValuesFacets {
           disi = dis.iterator();
         }
         if (disi != null) {
-          FixedBitSet bits = null;
           LeafReader reader = leaf.reader();
-          bits = new FixedBitSet(reader.maxDoc() + 1);
+          FixedBitSet bits = new FixedBitSet(reader.maxDoc() + 1);
           disi = new BitsBuilderDocIdSetIterator(disi, bits);
           if (extend) {
             tmp.add(new SimpleImmutableEntry<>(reader, bits));
@@ -274,6 +290,11 @@ public class DocValuesFacets {
             accumSingle(counts, startTermIndex, sub, disi, subIndex, ordinalMap);
           }
         }
+      }
+
+      if (segmentCache != null) {
+        segmentCache.put(searcher, new SegmentCacheEntry(counts, tmp));
+      }
       }
 
       if (startTermIndex == -1) {
@@ -542,7 +563,7 @@ public class DocValuesFacets {
     if (!cachePerSeg) {
       return null;
     } else {
-      GrowableByteArrayDataOutput cachedSegCountsBuilder = new GrowableByteArrayDataOutput(segCounts.length);
+      GrowableByteArrayDataOutput cachedSegCountsBuilder = new GrowableByteArrayDataOutput(segCounts.length * 2);
       for (int c : segCounts) {
         cachedSegCountsBuilder.writeVInt(c);
       }
