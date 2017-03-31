@@ -234,9 +234,9 @@ public class DocValuesFacets {
       Filter filter = docs.getTopFilter();
       List<Entry<LeafReader, Bits>> tmp;
       SegmentCacheEntry topLevelCacheEntry;
-      if (segmentCache != null && (topLevelCacheEntry = segmentCache.get(searcher)) != null) {
+      if (segmentCache != null && (topLevelCacheEntry = segmentCache.get(searcher)) != null
+          && (extend ^ (tmp = topLevelCacheEntry.leafBits) == null)) {
         counts = topLevelCacheEntry.topLevelCounts;
-        tmp = extend ? topLevelCacheEntry.leafBits : null;
       } else {
       counts = new int[nTerms];
       tmp = extend ? new ArrayList<>() : null;
