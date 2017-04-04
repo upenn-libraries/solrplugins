@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Predicate;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
@@ -93,9 +94,9 @@ public class DocBasedFacetResponseBuilder {
     private int localDocIndex = -1;
 
     public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms,
-        String contains, boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend,
+        Predicate<BytesRef> termFilter, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend,
         SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res, Set<String> fl) {
-      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
+      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter, mincount, counts,
           charsRef, extend, si, searcher, leaves, fieldName, ft, res);
       SchemaField uniqueKeyField = searcher.getSchema().getUniqueKeyField();
       this.targetDoc = new BytesRef(targetDoc);

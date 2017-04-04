@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReader;
@@ -146,7 +147,12 @@ public class DocValuesFacets {
     
   }
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, ResponseBuilder rb, long facetCacheThreshold, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean extend, BytesRef target, String targetDoc, boolean ignoreCase, FacetDebugInfo fdebug, boolean external, Set<String> fl) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean ignoreCase, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
+    final Predicate<BytesRef> termFilter = new SubstringBytesRefFilter(contains, ignoreCase);
+    return getCounts(searcher, docs, fieldName, offset, limit, mincount, missing, sort, prefix, termFilter, fdebug, extend, target, targetDoc, external, fl, facetCacheThreshold, rb);
+  }
+  
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, Predicate<BytesRef> termFilter, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
     FieldType ft = schemaField.getType();
     NamedList<Integer> res = new NamedList<>();
@@ -320,9 +326,9 @@ public class DocValuesFacets {
             // index order, so we already know that the keys are ordered.  This can be very
             // important if a lot of the counts are repeated (like zero counts would be).
 
-            if (contains != null) {
+            if (termFilter != null) {
               final BytesRef term = si.lookupOrd(startTermIndex+i);
-              if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+              if (!termFilter.test(term)) {
                 continue;
               }
             }
@@ -358,8 +364,8 @@ public class DocValuesFacets {
         // add results in index order
         int adjust=(startTermIndex==-1)?1:0;
         int i = adjust;
-        if (mincount<=0 && contains == null) {
-          // if mincount<=0 and we're not examining the values for contains, then
+        if (mincount<=0 && termFilter == null) {
+          // if mincount<=0 and we're not examining the values for the term filter, then
           // we won't discard any terms and we know exactly where to start.
           i+=off;
           off=0;
@@ -370,9 +376,9 @@ public class DocValuesFacets {
           int c = counts[i];
           if (c<mincount) continue;
           BytesRef term = null;
-          if (contains != null) {
+          if (termFilter != null) {
             term = si.lookupOrd(startTermIndex+i);
-            if (!SimpleFacets.contains(term.utf8ToString(), contains, ignoreCase)) {
+            if (!termFilter.test(term)) {
               continue;
             }
           }
@@ -393,11 +399,11 @@ public class DocValuesFacets {
             if (targetIdx < 0) {
               targetDoc = "";
             }
-            env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, contains,
-                ignoreCase, mincount, counts, charsRef, extend, si, searcher, docs, tmp, fieldName, ft, res, fl);
+            env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, termFilter,
+                mincount, counts, charsRef, extend, si, searcher, docs, tmp, fieldName, ft, res, fl);
           } else {
-            env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains,
-                ignoreCase, mincount, counts, charsRef, extend, si, searcher, tmp, fieldName, ft, res);
+            env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter,
+                mincount, counts, charsRef, extend, si, searcher, tmp, fieldName, ft, res);
           }
           termVals = BidirectionalFacetResponseBuilder.build(env, targetDoc != null);
         }
