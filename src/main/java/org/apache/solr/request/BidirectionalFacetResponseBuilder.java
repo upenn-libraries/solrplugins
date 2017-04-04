@@ -22,6 +22,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.function.Predicate;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SortedSetDocValues;
@@ -706,8 +707,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     protected final int startTermIndex;
     protected final int adjust;
     protected final int nTerms;
-    protected final String contains;
-    protected final boolean ignoreCase;
+    protected final Predicate<BytesRef> termFilter;
     protected final int[] counts;
     protected final CharsRefBuilder charsRef;
     protected final boolean extend;
@@ -720,8 +720,8 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     protected String currentTerm;
     protected Term currentFieldTerm;
     
-    public LocalEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
-        boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
+    public LocalEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, Predicate<BytesRef> termFilter,
+        int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
       super(offset, limit, targetIdx, mincount, fieldName, ft, res);
       if (startTermIndex == -1) {
@@ -737,8 +737,7 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       this.startTermIndex = startTermIndex;
       this.adjust = adjust;
       this.nTerms = nTerms;
-      this.contains = contains;
-      this.ignoreCase = ignoreCase;
+      this.termFilter = termFilter;
       this.counts = counts;
       this.charsRef = charsRef;
       this.extend = extend;
@@ -753,9 +752,9 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
       if (c < mincount) {
         return false;
       }
-      if (contains != null) {
+      if (termFilter != null) {
         currentTermBytes = si.lookupOrd(index);
-        if (!SimpleFacets.contains(currentTermBytes.utf8ToString(), contains, ignoreCase)) {
+        if (!termFilter.test(currentTermBytes)) {
           return false;
         }
       }
@@ -772,10 +771,10 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
     
   public static abstract class BaseLocalTermEnv<T extends FieldType & FacetPayload, K extends FacetKey<K>> extends LocalEnv<T, K> {
 
-    public BaseLocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
-        boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
+    public BaseLocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, Predicate<BytesRef> termFilter,
+        int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
-      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
+      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter, mincount, counts,
           charsRef, extend, si, searcher, leaves, fieldName, ft, res);
     }
 
@@ -817,10 +816,10 @@ public class BidirectionalFacetResponseBuilder<T extends FieldType & FacetPayloa
 
     private SimpleTermIndexKey facetKey;
 
-    public LocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, String contains,
-        boolean ignoreCase, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
+    public LocalTermEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, int nTerms, Predicate<BytesRef> termFilter,
+        int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend, SortedSetDocValues si,
         SolrIndexSearcher searcher, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res) {
-      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, contains, ignoreCase, mincount, counts,
+      super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter, mincount, counts,
           charsRef, extend, si, searcher, leaves, fieldName, ft, res);
     }
 

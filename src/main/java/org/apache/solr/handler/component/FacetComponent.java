@@ -34,6 +34,8 @@ import java.util.Set;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrException;
@@ -57,7 +59,9 @@ import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.SchemaField;
+import org.apache.solr.schema.PointField;
 import org.apache.solr.search.QueryParsing;
+import org.apache.solr.search.DocSet;
 import org.apache.solr.search.SyntaxError;
 import org.apache.solr.search.facet.FacetDebugInfo;
 import org.apache.solr.util.RTimer;
@@ -121,6 +125,11 @@ public class FacetComponent extends SearchComponent {
       // Initialize context
       FacetContext.initContext(rb);
     }
+  }
+
+  /* Custom facet components can return a custom SimpleFacets object */
+  protected SimpleFacets newSimpleFacets(SolrQueryRequest req, DocSet docSet, SolrParams params, ResponseBuilder rb) {
+    return new SimpleFacets(req, docSet, params, rb);
   }
 
   /**
@@ -273,7 +282,7 @@ public class FacetComponent extends SearchComponent {
 
     if (rb.doFacets) {
       SolrParams params = rb.req.getParams();
-      SimpleFacets f = new SimpleFacets(rb.req, rb.getResults().docSet, params, rb);
+      SimpleFacets f = newSimpleFacets(rb.req, rb.getResults().docSet, params, rb);
 
       RTimer timer = null;
       FacetDebugInfo fdebug = null;
@@ -1487,15 +1496,18 @@ public class FacetComponent extends SearchComponent {
         boolean appendDoc = targetStrict && this.targetDoc != null;
         if (ftype instanceof MultiSerializable) {
           try {
-            this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field, appendDoc).utf8ToString();
+            this.target.indexed = ((MultiSerializable)ftype).normalizeQueryTarget(rawTarget, targetStrict, field, appendDoc);
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
         } else {
-          this.target.indexed = rawTarget;
+          this.target.indexed = new BytesRef(rawTarget);
         }
         if (appendDoc) {
-          this.target.indexed = this.target.indexed.concat(this.targetDoc);
+          BytesRefBuilder builder = new BytesRefBuilder();
+          builder.append(this.target.indexed);
+          builder.append(new BytesRef(this.targetDoc));
+          this.target.indexed = builder.get();
         }
       }
       this.extend = params.getFieldBool(field, FacetParams.FACET_EXTEND, true);
@@ -1632,7 +1644,13 @@ public class FacetComponent extends SearchComponent {
             if (sfc == null) {
               sfc = new ShardFacetCount();
               sfc.name = name;
-              sfc.indexed = ftype == null ? sfc.name : ftype.toInternal(sfc.name);
+              if (ftype == null) {
+                sfc.indexed = null;
+              } else if (ftype.isPointField()) {
+                sfc.indexed = ((PointField)ftype).toInternalByteRef(sfc.name);
+              } else {
+                sfc.indexed = new BytesRef(ftype.toInternal(sfc.name));
+              }
               sfc.termNum = termNum++;
               sfc.val = val;
               counts.put(name, sfc);
@@ -1792,7 +1810,7 @@ public class FacetComponent extends SearchComponent {
   public static class ShardFacetCount {
     public String name;
     // the indexed form of the name... used for comparisons
-    public String indexed; 
+    public BytesRef indexed; 
     public long count;
     public Object val;
     public int termNum; // term number starting at 0 (used in bit arrays)
