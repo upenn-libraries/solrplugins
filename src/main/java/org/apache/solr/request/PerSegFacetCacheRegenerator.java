@@ -52,6 +52,7 @@ public class PerSegFacetCacheRegenerator implements CacheRegenerator {
           for (LeafReaderContext leaf : leaves) {
             segmentKeys.add(leaf.reader().getCombinedCoreAndDeletesKey());
           }
+          activeSegments.clear();
           activeSegments.put(newSearcher, segmentKeys);
         }
       }
