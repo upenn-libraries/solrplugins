@@ -273,6 +273,7 @@ public class DocValuesFacets {
           if (extend) {
             tmp.add(new SimpleImmutableEntry<>(reader, bits));
           }
+          byte[] cacheSegCounts;
           if (multiValued) {
             SortedSetDocValues sub = leaf.reader().getSortedSetDocValues(fieldName);
             if (sub == null) {
@@ -281,19 +282,19 @@ public class DocValuesFacets {
             final SortedDocValues singleton = DocValues.unwrapSingleton(sub);
             if (singleton != null) {
               // some codecs may optimize SORTED_SET storage for single-valued fields
-              accumSingle(counts, startTermIndex, singleton, disi, subIndex, ordinalMap);
+              cacheSegCounts = accumSingle(counts, startTermIndex, singleton, disi, subIndex, ordinalMap, segmentCache != null);
             } else {
-              byte[] cacheSegCounts = accumMulti(counts, startTermIndex, sub, disi, subIndex, ordinalMap, segmentCache != null);
-              if (cacheSegCounts != null) {
-                segmentCache.put(segKey, new SegmentCacheEntry(cacheSegCounts, bits));
-              }
+              cacheSegCounts = accumMulti(counts, startTermIndex, sub, disi, subIndex, ordinalMap, segmentCache != null);
             }
           } else {
             SortedDocValues sub = leaf.reader().getSortedDocValues(fieldName);
             if (sub == null) {
               sub = DocValues.emptySorted();
             }
-            accumSingle(counts, startTermIndex, sub, disi, subIndex, ordinalMap);
+            cacheSegCounts = accumSingle(counts, startTermIndex, sub, disi, subIndex, ordinalMap, segmentCache != null);
+          }
+          if (cacheSegCounts != null) {
+            segmentCache.put(segKey, new SegmentCacheEntry(cacheSegCounts, bits));
           }
         }
       }
@@ -455,14 +456,15 @@ public class DocValuesFacets {
   }
   
   /** accumulates per-segment single-valued facet counts */
-  static void accumSingle(int counts[], int startTermIndex, SortedDocValues si, DocIdSetIterator disi, int subIndex, OrdinalMap map) throws IOException {
-    if (startTermIndex == -1 && (map == null || si.getValueCount() < disi.cost()*10)) {
+  static byte[] accumSingle(int counts[], int startTermIndex, SortedDocValues si, DocIdSetIterator disi, int subIndex, OrdinalMap map, boolean cachePerSeg) throws IOException {
+    if (startTermIndex == -1 && (map == null || cachePerSeg || si.getValueCount() < disi.cost()*10)) {
       // no prefixing, not too many unique values wrt matching docs (lucene/facets heuristic): 
       //   collect separately per-segment, then map to global ords
-      accumSingleSeg(counts, si, disi, subIndex, map);
+      return accumSingleSeg(counts, si, disi, subIndex, map, cachePerSeg);
     } else {
       // otherwise: do collect+map on the fly
       accumSingleGeneric(counts, startTermIndex, si, disi, subIndex, map);
+      return null;
     }
   }
   
@@ -481,7 +483,7 @@ public class DocValuesFacets {
   }
   
   /** "typical" single-valued faceting: not too many unique values, no prefixing. maps to global ordinals as a separate step */
-  static void accumSingleSeg(int counts[], SortedDocValues si, DocIdSetIterator disi, int subIndex, OrdinalMap map) throws IOException {
+  static byte[] accumSingleSeg(int counts[], SortedDocValues si, DocIdSetIterator disi, int subIndex, OrdinalMap map, boolean cachePerSeg) throws IOException {
     // First count in seg-ord space:
     final int segCounts[];
     if (map == null) {
@@ -498,6 +500,15 @@ public class DocValuesFacets {
     // migrate to global ords (if necessary)
     if (map != null) {
       migrateGlobal(counts, segCounts, subIndex, map);
+    }
+    if (!cachePerSeg) {
+      return null;
+    } else {
+      GrowableByteArrayDataOutput cachedSegCountsBuilder = new GrowableByteArrayDataOutput(segCounts.length * 2);
+      for (int c : segCounts) {
+        cachedSegCountsBuilder.writeVInt(c);
+      }
+      return Arrays.copyOf(cachedSegCountsBuilder.getBytes(), cachedSegCountsBuilder.getPosition());
     }
   }
   
