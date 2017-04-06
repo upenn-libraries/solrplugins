@@ -81,6 +81,27 @@ public class DocValuesFacets {
   
   private static final String PERSEG_FACET_CACHE_NAME = "perSegFacetCache";
 
+  static class FacetCacheKey {
+    private final QueryResultKey qrk;
+    private final String fieldName;
+
+    public FacetCacheKey(QueryResultKey qrk, String fieldName) {
+      this.qrk = qrk;
+      this.fieldName = fieldName;
+    }
+
+    @Override
+    public int hashCode() {
+      return qrk.hashCode() ^ fieldName.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      FacetCacheKey other = (FacetCacheKey) obj;
+      return fieldName.equals(other.fieldName) && qrk.equals(other.qrk);
+    }
+  }
+
   static class SegmentCacheEntry {
     private final byte[] counts;
     private final Bits bits;
@@ -211,21 +232,13 @@ public class DocValuesFacets {
     if (nTerms>0 && docs.size() >= mincount) {
       Map<Object, SegmentCacheEntry> segmentCache = null;
       if (facetCacheThreshold >= 0 && docs.size() > facetCacheThreshold) {
-        SolrCache<QueryResultKey, Map<String, Map<Object, SegmentCacheEntry>>> parentCache = searcher.getCache(PERSEG_FACET_CACHE_NAME);
-        if (parentCache != null) {
-          QueryResultKey queryKey = new QueryResultKey(rb.getQuery(), rb.getFilters(), null, 0);
-          Map<String, Map<Object, SegmentCacheEntry>> fieldsCache = parentCache.get(queryKey);
-          if (fieldsCache == null) {
-            fieldsCache = new HashMap<>();
-            parentCache.put(queryKey, fieldsCache);
+        SolrCache<FacetCacheKey, Map<Object, SegmentCacheEntry>> facetCache = searcher.getCache(PERSEG_FACET_CACHE_NAME);
+        if (facetCache != null) {
+          FacetCacheKey facetCacheKey = new FacetCacheKey(new QueryResultKey(rb.getQuery(), rb.getFilters(), null, 0), fieldName);
+          segmentCache = facetCache.get(facetCacheKey);
+          if (segmentCache == null) {
             segmentCache = new HashMap<>();
-            fieldsCache.put(fieldName, segmentCache);
-          } else {
-            segmentCache = fieldsCache.get(fieldName);
-            if (segmentCache == null) {
-              segmentCache = new HashMap<>();
-              fieldsCache.put(fieldName, segmentCache);
-            }
+            facetCache.put(facetCacheKey, segmentCache);
           }
         }
       }

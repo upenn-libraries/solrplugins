@@ -57,23 +57,16 @@ public class PerSegFacetCacheRegenerator implements CacheRegenerator {
         }
       }
     }
-    Map<String, Map<Object, SegmentCacheEntry>> oldFieldsCache = (Map<String, Map<Object, SegmentCacheEntry>>)oldVal;
-    Map<String, Map<Object, SegmentCacheEntry>> newFieldsCache = new HashMap<>(oldFieldsCache.size());
-    for (Map.Entry<String, Map<Object, SegmentCacheEntry>> e : oldFieldsCache.entrySet()) {
-      Map<Object, SegmentCacheEntry> oldSegmentCache = e.getValue();
-      Map<Object, SegmentCacheEntry> newSegmentCache = new HashMap<>(e.getValue());
-      for (Map.Entry<Object, SegmentCacheEntry> e1 : oldSegmentCache.entrySet()) {
-        Object segmentKey = e1.getKey();
-        if (segmentKeys.contains(segmentKey)) {
-          newSegmentCache.put(segmentKey, e1.getValue());
-        }
-      }
-      if (!newSegmentCache.isEmpty()) {
-        newFieldsCache.put(e.getKey(), newSegmentCache);
+    Map<Object, SegmentCacheEntry> oldSegmentCache = (Map<Object, SegmentCacheEntry>)oldVal;
+    Map<Object, SegmentCacheEntry> newSegmentCache = new HashMap<>(oldSegmentCache.size());
+    for (Map.Entry<Object, SegmentCacheEntry> e : oldSegmentCache.entrySet()) {
+      Object segmentKey = e.getKey();
+      if (segmentKeys.contains(segmentKey)) {
+        newSegmentCache.put(segmentKey, e.getValue());
       }
     }
-    if (!newFieldsCache.isEmpty()) {
-      nc.put(oldKey, newFieldsCache);
+    if (!newSegmentCache.isEmpty()) {
+      nc.put(oldKey, newSegmentCache);
     }
     return true;
   }
