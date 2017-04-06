@@ -58,7 +58,7 @@ public class PerSegFacetCacheRegenerator implements CacheRegenerator {
       }
     }
     Map<Object, SegmentCacheEntry> oldSegmentCache = (Map<Object, SegmentCacheEntry>)oldVal;
-    Map<Object, SegmentCacheEntry> newSegmentCache = new HashMap<>(oldSegmentCache.size());
+    Map<Object, SegmentCacheEntry> newSegmentCache = new HashMap<>(segmentKeys.size());
     for (Map.Entry<Object, SegmentCacheEntry> e : oldSegmentCache.entrySet()) {
       Object segmentKey = e.getKey();
       if (segmentKeys.contains(segmentKey)) {
