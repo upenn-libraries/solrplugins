@@ -37,5 +37,5 @@ done << EOF
 org/apache/solr/common/params/FacetParams.java
 EOF
 
-git add .
+git add src
 git commit -m "solr upstream base for tag \"$ref\""
