@@ -306,20 +306,22 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
         if(ordinalMap != null) {
           int ord = currentValues.getOrd(contextDoc);
           if(ord > -1) {
-            ++count;
             BytesRef ref = currentValues.lookupOrd(ord);
             ord = (int)segmentOrdinalMap.get(ord);
-            ordBytes.put(ord, BytesRef.deepCopyOf(ref));
-            groupBits.set(ord);
+            if (!groupBits.getAndSet(ord)) {
+              ++count;
+              ordBytes.put(ord, BytesRef.deepCopyOf(ref));
+            }
             collapsedSet.add(globalDoc);
           }
         } else {
           int ord = values.getOrd(globalDoc);
           if(ord > -1) {
-            ++count;
             BytesRef ref = values.lookupOrd(ord);
-            ordBytes.put(ord, BytesRef.deepCopyOf(ref));
-            groupBits.set(ord);
+            if (!groupBits.getAndSet(ord)) {
+              ++count;
+              ordBytes.put(ord, BytesRef.deepCopyOf(ref));
+            }
             collapsedSet.add(globalDoc);
           }
         }
@@ -347,8 +349,9 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
         int contextDoc = globalDoc - currentDocBase;
         long value = collapseValues.get(contextDoc);
         if(value != nullValue) {
-          ++count;
-          groupSet.add(value);
+          if (groupSet.add(value)) {
+            ++count;
+          }
           collapsedSet.add(globalDoc);
         }
       }
