@@ -27,6 +27,7 @@ while read file; do
   curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/solr/core/src/java/$file" > "$BASE_DIR/src/main/java/$file"
 done << EOF
 org/apache/solr/handler/component/FacetComponent.java
+org/apache/solr/handler/component/ExpandComponent.java
 org/apache/solr/request/SimpleFacets.java
 org/apache/solr/request/DocValuesFacets.java
 EOF
@@ -37,5 +38,5 @@ done << EOF
 org/apache/solr/common/params/FacetParams.java
 EOF
 
-git add .
+git add src
 git commit -m "solr upstream base for tag \"$ref\""
