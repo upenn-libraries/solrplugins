@@ -158,7 +158,6 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
 
     @Override
     protected void doClose() {
-      System.err.println("XXX got doClose()");
       executor.shutdown();
       try {
         executor.awaitTermination(10, TimeUnit.SECONDS);
@@ -236,7 +235,6 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       for (Entry<String, Collection<Object>> e : buildValues.entrySet()) {
         doc.setField(e.getKey(), e.getValue());
       }
-      System.err.println(doc);
       super.processAdd(cmd);
     }
 
