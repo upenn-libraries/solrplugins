@@ -357,11 +357,15 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
     }
   }
 
-  private static class PreAnalyzedAnalyzer extends SolrAnalyzer {
+  public static class PreAnalyzedAnalyzer extends SolrAnalyzer {
     private PreAnalyzedParser parser;
 
     PreAnalyzedAnalyzer(PreAnalyzedParser parser) {
       this.parser = parser;
+    }
+
+    PreAnalyzedAnalyzer() {
+      this.parser = new JsonPreAnalyzedParser();
     }
 
     @Override
