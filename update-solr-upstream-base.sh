@@ -30,6 +30,8 @@ org/apache/solr/handler/component/FacetComponent.java
 org/apache/solr/handler/component/ExpandComponent.java
 org/apache/solr/request/SimpleFacets.java
 org/apache/solr/request/DocValuesFacets.java
+org/apache/solr/schema/PreAnalyzedField.java
+org/apache/solr/schema/JsonPreAnalyzedParser.java
 EOF
 while read file; do
   mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
