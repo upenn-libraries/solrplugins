@@ -16,6 +16,7 @@
 package edu.upenn.library.solrplugins.tokentype;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
@@ -33,7 +34,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private static final String HIERARCHY_LEVEL_ARGNAME = "hierarchyLevel";
   private static final String OUTPUT_TYPE_ARGNAME = "outputType";
   private static final String TYPE_FOR_PAYLOAD_ARGNAME = "typeForPayload";
-  private static final String DISPLAY_COMPONENT_TYPE_ARGNAME = "displayComponentType";
+  private static final String DISPLAY_COMPONENT_TYPES_ARGNAME = "displayComponentTypes";
   private static final String OUTPUT_COMPONENTS_ARGNAME = "outputComponents";
   private static final String APPEND_PLACEHOLDERS_ARGNAME = "appendPlaceholders";
   private static final boolean DEFAULT_OUTPUT_COMPONENTS = false;
@@ -42,9 +43,9 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
 
   private static final char DEFAULT_DELIM = '\u0000';
 
-  private final String[] inputTypes;
+  private final Map<String, Integer> inputTypes;
   private final String outputType;
-  private final String displayComponentType;
+  private final int[] displayComponentTypes;
   private final String typeForPayload;
   private final String delim;
   private final boolean outputComponents;
@@ -61,9 +62,17 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
       Arrays.fill(delimBuilder, delimChar);
       delim = new String(delimBuilder);
     }
-    inputTypes = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
+    String[] inputTypesArr = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
+    inputTypes = new HashMap<>(inputTypesArr.length * 2);
+    for (int i = 0; i < inputTypesArr.length; i++) {
+      inputTypes.put(inputTypesArr[i], i);
+    }
+    String[] displayComponentTypesArr = args.get(DISPLAY_COMPONENT_TYPES_ARGNAME).split("\\s*,\\s*");
+    displayComponentTypes = new int[displayComponentTypesArr.length];
+    for (int i = 0; i < displayComponentTypes.length; i++) {
+      displayComponentTypes[i] = inputTypes.get(displayComponentTypesArr[i]);
+    }
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
-    displayComponentType = args.get(DISPLAY_COMPONENT_TYPE_ARGNAME);
     typeForPayload = args.get(TYPE_FOR_PAYLOAD_ARGNAME);
     String outputComponentsS = args.get(OUTPUT_COMPONENTS_ARGNAME);
     this.outputComponents = outputComponentsS == null ? DEFAULT_OUTPUT_COMPONENTS : Boolean.parseBoolean(outputComponentsS);
@@ -73,7 +82,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
 
   @Override
   public TokenStream create(TokenStream input) {
-    return new TokenTypeJoinFilter(input, inputTypes, outputType, typeForPayload, delim, outputComponents, appendPlaceholders, displayComponentType);
+    return new TokenTypeJoinFilter(input, inputTypes, outputType, typeForPayload, delim, outputComponents, appendPlaceholders, displayComponentTypes);
   }
 
 }

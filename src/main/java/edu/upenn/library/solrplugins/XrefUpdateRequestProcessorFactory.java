@@ -122,7 +122,10 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
           protected Analyzer.TokenStreamComponents createComponents(String fieldName) {
             KeywordTokenizer kt = new KeywordTokenizer();
             TokenTypeSplitFilter ttsf = new TokenTypeSplitFilter(kt, null, null, "normalized", "filing");
-            TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsf, new String[]{"normalized", "filing"}, "indexed", "filing", "!", false, true, "filing");
+            Map<String, Integer> inputTypes = new HashMap<>(4);
+            inputTypes.put("normalized", 0);
+            inputTypes.put("filing", 1);
+            TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsf, inputTypes, "indexed", "filing", "!", false, true, new int[] {1});
             return new TokenStreamComponents(kt, ttjf);
           }
         };
@@ -155,6 +158,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
 
     @Override
     protected void doClose() {
+      System.err.println("XXX got doClose()");
       executor.shutdown();
       try {
         executor.awaitTermination(10, TimeUnit.SECONDS);

@@ -50,10 +50,9 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final boolean outputComponentTokens;
   private final boolean appendPlaceholders;
   private final Map<String, Integer> componentIndexMap;
-  private final String displayComponentType;
+  private final int[] displayComponentIndices;
 
   private final String[] components;
-  private int displayComponentIndex = -1;
   private int bufferedOffsetStart;
   private int bufferedOffsetEnd;
   private BytesRef payload;
@@ -62,20 +61,17 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private boolean exhausted = false;
   private int increment = 0;
 
-  public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, String typeForPayload,
-      String delim, boolean outputComponentTokens, boolean appendPlaceholders, String displayComponentType) {
+  public TokenTypeJoinFilter(TokenStream input, Map<String, Integer> componentIndexMap, String outputType, String typeForPayload,
+      String delim, boolean outputComponentTokens, boolean appendPlaceholders, int[] displayComponentIndices) {
     super(input);
-    componentIndexMap = new HashMap<>(componentTypes.length * 2);
-    for (int i = 0; i < componentTypes.length; i++) {
-      componentIndexMap.put(componentTypes[i], i);
-    }
-    components = new String[componentTypes.length];
+    this.componentIndexMap = componentIndexMap;
+    components = new String[componentIndexMap.size()];
     this.outputType = outputType;
     this.typeForPayload = typeForPayload;
     this.delim = delim;
     this.outputComponentTokens = outputComponentTokens;
     this.appendPlaceholders = appendPlaceholders;
-    this.displayComponentType = displayComponentType;
+    this.displayComponentIndices = displayComponentIndices;
   }
 
   @Override
@@ -124,9 +120,6 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     Integer index;
     String type = typeAtt.type();
     if ((index = componentIndexMap.get(type)) != null) {
-      if (displayComponentType != null && displayComponentType.equals(type)) {
-        displayComponentIndex = index;
-      }
       components[index] = termAtt.toString();
       if (primed) {
         int tmp;
@@ -170,8 +163,13 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     termAtt.setEmpty();
     termAtt.append(sb);
     displayAtt.setEmpty();
-    if (displayComponentIndex >= 0) {
-      displayAtt.append(components[displayComponentIndex]);
+    if (displayComponentIndices != null) {
+      for (int i : displayComponentIndices) {
+        String dispComponent = components[i];
+        if (dispComponent != null) {
+          displayAtt.append(dispComponent);
+        }
+      }
     }
     typeAtt.setType(outputType);
     offsetAtt.setOffset(bufferedOffsetStart, bufferedOffsetEnd);
@@ -180,7 +178,6 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
     payloadAtt.setPayload(payload);
     Arrays.fill(components, null);
-    displayComponentIndex = -1;
     primed = false;
   }
 
@@ -205,7 +202,6 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     increment = 0;
     state = null;
     Arrays.fill(components, null);
-    displayComponentIndex = -1;
     displayAtt.setEmpty();
     super.reset();
   }

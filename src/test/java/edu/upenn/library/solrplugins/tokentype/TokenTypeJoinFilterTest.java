@@ -22,6 +22,8 @@ import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import static junit.framework.Assert.assertTrue;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -34,6 +36,14 @@ import org.apache.lucene.util.BytesRef;
 public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
 
+  private Map<String, Integer> getInputTypeMap(String... inputTypes) {
+    Map<String, Integer> ret = new HashMap<>(inputTypes.length * 2);
+    for (int i = 0; i < inputTypes.length; i++) {
+      ret.put(inputTypes[i], i);
+    }
+    return ret;
+  }
+  
   public void test() throws IOException {
     String test = "The quick red fox jumped over the lazy brown dogs";
 
@@ -41,7 +51,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", null, "!", false, true, null);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, getInputTypeMap("even_orig", "even_fork"), "joined", null, "!", false, true, null);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -99,7 +109,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
         Collections.EMPTY_SET, "even_fork", "even_orig");
     TokenTypeSplitFilter ttsfOdd = new TokenTypeSplitFilter(ttsf, Collections.singleton("odd"),
         Collections.EMPTY_SET, "odd_fork", "odd_orig");
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, new String[] {"even_orig", "even_fork"}, "joined", null, "!", true, true, null);
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(ttsfOdd, getInputTypeMap("even_orig", "even_fork"), "joined", null, "!", true, true, null);
     int count = 0;
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
     OffsetAttribute offsetAtt = ttjf.getAttribute(OffsetAttribute.class);
@@ -166,7 +176,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   public void testVariableTokenPresence() throws IOException {
     String test = "The Quick Red Fox Jumped Over The Lazy Brown Dogs";
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new Blah2(whitespaceMockTokenizer(test)), new String[] {"raw", "lower", "upper"}, 
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new Blah2(whitespaceMockTokenizer(test)), getInputTypeMap("raw", "lower", "upper"), 
         "joined", null, "!", false, false, null);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     PayloadAttribute payloadAtt = ttjf.getAttribute(PayloadAttribute.class);
@@ -210,7 +220,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   /** verify that payload gets picked up for 1st group of tokens */
   public void testTypeForPayload1() throws IOException {
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloads), new String[] {"normalized", "filing", "prefix"},
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloads), getInputTypeMap("normalized", "filing", "prefix"),
             "joined", "normalized", "!", false, false, null);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
@@ -234,7 +244,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   /** verify that payload gets picked up for 2nd group of tokens */
   public void testTypeForPayload2() throws IOException {
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloads), new String[] {"normalized", "filing", "prefix"},
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloads), getInputTypeMap("normalized", "filing", "prefix"),
             "joined", "filing", "!", false, false, null);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
@@ -274,7 +284,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   /** verify that payload gets overwritten properly across groups of tokens*/
   public void testTypeForPayloadOverwrite1() throws IOException {
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), new String[] {"normalized", "filing", "prefix"},
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), getInputTypeMap("normalized", "filing", "prefix"),
             "joined", "normalized", "!", false, false, null);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
@@ -310,7 +320,7 @@ public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
   /** verify that payload gets overwritten properly across groups of tokens*/
   public void testTypeForPayloadOverwrite2() throws IOException {
-    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), new String[] {"normalized", "filing", "prefix"},
+    TokenTypeJoinFilter ttjf = new TokenTypeJoinFilter(new TokenArrayTokenizer(tokensWithPayloadsInDifferentTokenTypes), getInputTypeMap("normalized", "filing", "prefix"),
             "joined", "filing", "!", false, false, null);
     CharTermAttribute termAtt = ttjf.getAttribute(CharTermAttribute.class);
     TypeAttribute typeAtt = ttjf.getAttribute(TypeAttribute.class);
