@@ -51,6 +51,14 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
   private final boolean outputComponents;
   private final boolean appendPlaceholders;
 
+  public static Map<String, Integer> getInputTypeMap(String... inputTypes) {
+    Map<String, Integer> ret = new HashMap<>(inputTypes.length * 2);
+    for (int i = 0; i < inputTypes.length; i++) {
+      ret.put(inputTypes[i], i);
+    }
+    return ret;
+  }
+  
   public TokenTypeJoinFilterFactory(Map<String, String> args) {
     super(args);
     char delimChar = args.containsKey(DELIM_CODEPOINT_ARGNAME) ? Character.toChars(Integer.parseInt(args.get(DELIM_CODEPOINT_ARGNAME)))[0] : DEFAULT_DELIM;
@@ -63,10 +71,7 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
       delim = new String(delimBuilder);
     }
     String[] inputTypesArr = args.get(INPUT_TYPES_ARGNAME).split("\\s*,\\s*");
-    inputTypes = new HashMap<>(inputTypesArr.length * 2);
-    for (int i = 0; i < inputTypesArr.length; i++) {
-      inputTypes.put(inputTypesArr[i], i);
-    }
+    inputTypes = getInputTypeMap(inputTypesArr);
     String displayComponentsStr = args.get(DISPLAY_COMPONENT_TYPES_ARGNAME);
     if (displayComponentsStr == null) {
       displayComponentTypes = null;

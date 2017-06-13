@@ -16,14 +16,13 @@
  */
 package edu.upenn.library.solrplugins.tokentype;
 
+import static edu.upenn.library.solrplugins.tokentype.TokenTypeJoinFilterFactory.getInputTypeMap;
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import static junit.framework.Assert.assertTrue;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -36,14 +35,6 @@ import org.apache.lucene.util.BytesRef;
 public class TokenTypeJoinFilterTest extends BaseTokenStreamTestCase {
 
 
-  private Map<String, Integer> getInputTypeMap(String... inputTypes) {
-    Map<String, Integer> ret = new HashMap<>(inputTypes.length * 2);
-    for (int i = 0; i < inputTypes.length; i++) {
-      ret.put(inputTypes[i], i);
-    }
-    return ret;
-  }
-  
   public void test() throws IOException {
     String test = "The quick red fox jumped over the lazy brown dogs";
 
