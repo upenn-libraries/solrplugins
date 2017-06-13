@@ -16,6 +16,7 @@
  */
 package org.apache.solr.schema;
 
+import edu.upenn.library.solrplugins.tokentype.TokenTypeJoinFilter;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.invoke.MethodHandles;
@@ -33,6 +34,7 @@ import org.apache.lucene.analysis.tokenattributes.FlagsAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
+import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.apache.lucene.document.Field;
@@ -61,6 +63,7 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
   public static final String OFFSET_START_KEY = "s";
   public static final String OFFSET_END_KEY = "e";
   public static final String POSINCR_KEY = "i";
+  public static final String POSLENGTH_KEY = "l";
   public static final String PAYLOAD_KEY = "p";
   public static final String TYPE_KEY = "y";
   public static final String FLAGS_KEY = "f";
@@ -163,6 +166,20 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
           }
           PositionIncrementAttribute patt = parent.addAttribute(PositionIncrementAttribute.class);
           patt.setPositionIncrement(posIncr);
+        } else if (key.equals(POSLENGTH_KEY)) {
+          Object obj = e.getValue();
+          int posLength = 1;
+          if (obj instanceof Number) {
+            posLength = ((Number)obj).intValue();
+          } else {
+            try {
+              posLength = Integer.parseInt(String.valueOf(obj));
+            } catch (NumberFormatException nfe) {
+              LOG.warn("Invalid " + POSLENGTH_KEY + " attribute, skipped: '" + obj + "'");
+            }
+          }
+          PositionLengthAttribute platt = parent.addAttribute(PositionLengthAttribute.class);
+          platt.setPositionLength(posLength);
         } else if (key.equals(PAYLOAD_KEY)) {
           String str = String.valueOf(e.getValue());
           if (str.length() > 0) {
@@ -252,6 +269,10 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
               }
             } else if (cl.isAssignableFrom(PositionIncrementAttribute.class)) {
               tok.put(POSINCR_KEY, ((PositionIncrementAttribute)att).getPositionIncrement());
+            } else if (cl.isAssignableFrom(PositionLengthAttribute.class)) {
+              tok.put(POSLENGTH_KEY, ((PositionLengthAttribute)att).getPositionLength());
+            } else if (cl.isAssignableFrom(TokenTypeJoinFilter.DisplayAttribute.class)) {
+              // skip
             } else if (cl.isAssignableFrom(TypeAttribute.class)) {
               tok.put(TYPE_KEY, ((TypeAttribute)att).type());
             } else {
