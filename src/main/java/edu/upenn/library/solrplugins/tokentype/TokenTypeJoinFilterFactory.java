@@ -67,10 +67,15 @@ public class TokenTypeJoinFilterFactory extends TokenFilterFactory {
     for (int i = 0; i < inputTypesArr.length; i++) {
       inputTypes.put(inputTypesArr[i], i);
     }
-    String[] displayComponentTypesArr = args.get(DISPLAY_COMPONENT_TYPES_ARGNAME).split("\\s*,\\s*");
-    displayComponentTypes = new int[displayComponentTypesArr.length];
-    for (int i = 0; i < displayComponentTypes.length; i++) {
-      displayComponentTypes[i] = inputTypes.get(displayComponentTypesArr[i]);
+    String displayComponentsStr = args.get(DISPLAY_COMPONENT_TYPES_ARGNAME);
+    if (displayComponentsStr == null) {
+      displayComponentTypes = null;
+    } else {
+      String[] displayComponentTypesArr = args.get(DISPLAY_COMPONENT_TYPES_ARGNAME).split("\\s*,\\s*");
+      displayComponentTypes = new int[displayComponentTypesArr.length];
+      for (int i = 0; i < displayComponentTypes.length; i++) {
+        displayComponentTypes[i] = inputTypes.get(displayComponentTypesArr[i]);
+      }
     }
     outputType = args.get(OUTPUT_TYPE_ARGNAME);
     typeForPayload = args.get(TYPE_FOR_PAYLOAD_ARGNAME);
