@@ -22,10 +22,12 @@ import java.util.Map;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttributeImpl;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.util.Attribute;
 import org.apache.lucene.util.BytesRef;
 
 /**
@@ -35,6 +37,7 @@ import org.apache.lucene.util.BytesRef;
 public final class TokenTypeJoinFilter extends TokenFilter {
 
   private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
+  private final DisplayAttribute displayAtt = addAttribute(DisplayAttribute.class);
   private final PositionIncrementAttribute posIncrAtt = addAttribute(PositionIncrementAttribute.class);
   private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
   private final OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
@@ -47,8 +50,10 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private final boolean outputComponentTokens;
   private final boolean appendPlaceholders;
   private final Map<String, Integer> componentIndexMap;
+  private final String displayComponentType;
 
   private final String[] components;
+  private int displayComponentIndex = -1;
   private int bufferedOffsetStart;
   private int bufferedOffsetEnd;
   private BytesRef payload;
@@ -58,7 +63,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
   private int increment = 0;
 
   public TokenTypeJoinFilter(TokenStream input, String[] componentTypes, String outputType, String typeForPayload,
-      String delim, boolean outputComponentTokens, boolean appendPlaceholders) {
+      String delim, boolean outputComponentTokens, boolean appendPlaceholders, String displayComponentType) {
     super(input);
     componentIndexMap = new HashMap<>(componentTypes.length * 2);
     for (int i = 0; i < componentTypes.length; i++) {
@@ -70,6 +75,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     this.delim = delim;
     this.outputComponentTokens = outputComponentTokens;
     this.appendPlaceholders = appendPlaceholders;
+    this.displayComponentType = displayComponentType;
   }
 
   @Override
@@ -108,15 +114,19 @@ public final class TokenTypeJoinFilter extends TokenFilter {
    * Stores current token's payload attribute in a member variable
    * if it's appropriate to do so.
    */
-  private void storePayload() {
-    if(typeForPayload != null && payload == null && typeForPayload.equals(typeAtt.type())) {
+  private void storePayload(String type) {
+    if(typeForPayload != null && typeForPayload.equals(type)) {
       payload = payloadAtt.getPayload();
     }
   }
 
   private boolean buffer() throws IOException {
     Integer index;
-    if ((index = componentIndexMap.get(typeAtt.type())) != null) {
+    String type = typeAtt.type();
+    if ((index = componentIndexMap.get(type)) != null) {
+      if (displayComponentType != null && displayComponentType.equals(type)) {
+        displayComponentIndex = index;
+      }
       components[index] = termAtt.toString();
       if (primed) {
         int tmp;
@@ -132,12 +142,12 @@ public final class TokenTypeJoinFilter extends TokenFilter {
         payload = null;
         primed = true;
       }
-      storePayload();
+      storePayload(type);
       return outputComponentTokens || incrementToken();
     } else {
       posIncrAtt.setPositionIncrement(increment);
       increment = 0;
-      storePayload();
+      storePayload(type);
       return true;
     }
   }
@@ -159,6 +169,10 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
     termAtt.setEmpty();
     termAtt.append(sb);
+    displayAtt.setEmpty();
+    if (displayComponentIndex >= 0) {
+      displayAtt.append(components[displayComponentIndex]);
+    }
     typeAtt.setType(outputType);
     offsetAtt.setOffset(bufferedOffsetStart, bufferedOffsetEnd);
     if (outputComponentTokens) {
@@ -166,6 +180,7 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     }
     payloadAtt.setPayload(payload);
     Arrays.fill(components, null);
+    displayComponentIndex = -1;
     primed = false;
   }
 
@@ -190,7 +205,21 @@ public final class TokenTypeJoinFilter extends TokenFilter {
     increment = 0;
     state = null;
     Arrays.fill(components, null);
+    displayComponentIndex = -1;
+    displayAtt.setEmpty();
     super.reset();
   }
+
+  public static interface DisplayAttribute extends Attribute {
+    CharTermAttribute setEmpty();
+    CharTermAttribute append(char c);
+    CharTermAttribute append(CharTermAttribute cta);
+    CharTermAttribute append(String s);
+    CharTermAttribute append(StringBuilder sb);
+    CharTermAttribute append(CharSequence cs);
+    CharTermAttribute append(CharSequence cs, int start, int end);
+  }
+  
+  public static class DisplayAttributeImpl extends CharTermAttributeImpl implements DisplayAttribute {}
 
 }
