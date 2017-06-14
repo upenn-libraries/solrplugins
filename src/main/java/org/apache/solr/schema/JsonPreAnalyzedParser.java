@@ -39,6 +39,7 @@ import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.util.Attribute;
+import org.apache.lucene.util.AttributeImpl;
 import org.apache.lucene.util.AttributeSource;
 import org.apache.lucene.util.AttributeSource.State;
 import org.apache.lucene.util.BytesRef;
@@ -70,7 +71,19 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
 
   @SuppressWarnings("unchecked")
   @Override
-  public ParseResult parse(Reader reader, AttributeSource parent)
+  public ParseResult parse(Reader reader, AttributeSource parent) throws IOException {
+    return parse(reader, parent, null);
+  }
+
+  private static <T extends Attribute> T addAttribute(AttributeSource dest, AttributeSource cache, Class<T> attClass) {
+    T ret = (T) cache.addAttribute(attClass);
+    dest.addAttributeImpl((AttributeImpl)ret);
+    return ret;
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Override
+  public ParseResult parse(Reader reader, AttributeSource parent, AttributeSource attributeCache)
       throws IOException {
     ParseResult res = new ParseResult();
     StringBuilder sb = new StringBuilder();
@@ -122,7 +135,7 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
       for (Entry<String,Object> e : tok.entrySet()) {
         String key = e.getKey();
         if (key.equals(TOKEN_KEY)) {
-          CharTermAttribute catt = parent.addAttribute(CharTermAttribute.class);
+          CharTermAttribute catt = addAttribute(parent, attributeCache, CharTermAttribute.class);
           String str = String.valueOf(e.getValue());
           catt.append(str);
           len = str.length();
@@ -164,7 +177,7 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
               LOG.warn("Invalid " + POSINCR_KEY + " attribute, skipped: '" + obj + "'");
             }
           }
-          PositionIncrementAttribute patt = parent.addAttribute(PositionIncrementAttribute.class);
+          PositionIncrementAttribute patt = addAttribute(parent, attributeCache, PositionIncrementAttribute.class);
           patt.setPositionIncrement(posIncr);
         } else if (key.equals(POSLENGTH_KEY)) {
           Object obj = e.getValue();
@@ -178,13 +191,13 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
               LOG.warn("Invalid " + POSLENGTH_KEY + " attribute, skipped: '" + obj + "'");
             }
           }
-          PositionLengthAttribute platt = parent.addAttribute(PositionLengthAttribute.class);
+          PositionLengthAttribute platt = addAttribute(parent, attributeCache, PositionLengthAttribute.class);
           platt.setPositionLength(posLength);
         } else if (key.equals(PAYLOAD_KEY)) {
           String str = String.valueOf(e.getValue());
           if (str.length() > 0) {
             byte[] data = Base64.base64ToByteArray(str);
-            PayloadAttribute p = parent.addAttribute(PayloadAttribute.class);
+            PayloadAttribute p = addAttribute(parent, attributeCache, PayloadAttribute.class);
             if (data != null && data.length > 0) {
               p.setPayload(new BytesRef(data));
             }
@@ -192,20 +205,20 @@ public class JsonPreAnalyzedParser implements PreAnalyzedParser {
         } else if (key.equals(FLAGS_KEY)) {
           try {
             int f = Integer.parseInt(String.valueOf(e.getValue()), 16);
-            FlagsAttribute flags = parent.addAttribute(FlagsAttribute.class);
+            FlagsAttribute flags = addAttribute(parent, attributeCache, FlagsAttribute.class);
             flags.setFlags(f);
           } catch (NumberFormatException nfe) {
             LOG.warn("Invalid " + FLAGS_KEY + " attribute, skipped: '" + e.getValue() + "'");            
           }
         } else if (key.equals(TYPE_KEY)) {
-          TypeAttribute tattr = parent.addAttribute(TypeAttribute.class);
+          TypeAttribute tattr = addAttribute(parent, attributeCache, TypeAttribute.class);
           tattr.setType(String.valueOf(e.getValue()));
         } else {
           LOG.warn("Unknown attribute, skipped: " + e.getKey() + "=" + e.getValue());
         }
       }
       // handle offset attr
-      OffsetAttribute offset = parent.addAttribute(OffsetAttribute.class);
+      OffsetAttribute offset = addAttribute(parent, attributeCache, OffsetAttribute.class);
       if (!hasOffsetEnd && len > -1) {
         tokenEnd = tokenStart + len;
       }

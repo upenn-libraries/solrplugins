@@ -215,6 +215,16 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
     public ParseResult parse(Reader reader, AttributeSource parent) throws IOException;
     
     /**
+     * Parse input.
+     * @param reader input to read from
+     * @param parent parent who will own the resulting states (tokens with attributes)
+     * @param attributeCache source so that common attributes are the same across invocations
+     * @return parse result, with possibly null stored and/or states fields.
+     * @throws IOException if a parsing error or IO error occurs
+     */
+    public ParseResult parse(Reader reader, AttributeSource parent, AttributeSource attributeCache) throws IOException;
+    
+    /**
      * Format a field so that the resulting String is valid for parsing with {@link #parse(Reader, AttributeSource)}.
      * @param f field instance
      * @return formatted string
@@ -283,12 +293,14 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
     private String stringValue = null;
     private byte[] binaryValue = null;
     private PreAnalyzedParser parser;
+    private final AttributeSource cachedAttributes;
     private IOException readerConsumptionException;
 
     public PreAnalyzedTokenizer(PreAnalyzedParser parser) {
       // we don't pack attributes: since we are used for (de)serialization and dont want bloat.
       super(AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY);
       this.parser = parser;
+      this.cachedAttributes = new AttributeSource(this.getAttributeFactory());
     }
     
     public boolean hasTokenStream() {
@@ -342,7 +354,7 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
       stringValue = null;
       binaryValue = null;
       try {
-        ParseResult res = parser.parse(reader, this);
+        ParseResult res = parser.parse(reader, this, cachedAttributes);
         if (res != null) {
           stringValue = res.str;
           binaryValue = res.bin;

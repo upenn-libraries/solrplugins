@@ -43,19 +43,16 @@ import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.search.SortField;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.response.SolrQueryResponse;
-import org.apache.solr.response.TextResponseWriter;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.JsonPreAnalyzedParser;
+import org.apache.solr.schema.PreAnalyzedField;
 import org.apache.solr.schema.SchemaField;
-import org.apache.solr.uninverting.UninvertingReader;
+import org.apache.solr.schema.TextField;
 import org.apache.solr.update.AddUpdateCommand;
 import org.apache.solr.update.processor.UpdateRequestProcessor;
 import org.apache.solr.update.processor.UpdateRequestProcessorFactory;
@@ -67,17 +64,10 @@ import org.apache.solr.update.processor.UpdateRequestProcessorFactory;
 public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFactory {
 
   private static final JsonPreAnalyzedParser parser = new JsonPreAnalyzedParser();
-  private static final FieldType DUMMY = new FieldType();
   private static final String INPUT_FIELD_ARGNAME = "inputField";
   private static final String OUTPUT_FIELD_ARGNAME = "outputField";
   private static final String COPY_FIELD_DEST_ARGNAME = "copyFieldDest";
 
-  static {
-    DUMMY.setIndexOptions(IndexOptions.DOCS);
-    DUMMY.setStored(false);
-    DUMMY.setTokenized(true);
-  }
-  
   private String inputField;
   private String outputField;
   private String copyFieldDest;
@@ -85,7 +75,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
   @Override
   public UpdateRequestProcessor getInstance(SolrQueryRequest req, SolrQueryResponse rsp, UpdateRequestProcessor next) {
     IndexSchema schema = req.getSchema();
-    return new XrefUpdateRequestProcessor(next, schema.getField(inputField), outputField, Collections.singletonList(new BlahFactory(Collections.EMPTY_MAP, copyFieldDest)));
+    return new XrefUpdateRequestProcessor(next, schema.getField(inputField), schema.getField(outputField), Collections.singletonList(new BlahFactory(Collections.EMPTY_MAP, copyFieldDest)));
   }
 
   @Override
@@ -97,23 +87,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
   }
 
   public static void main(String[] args) throws Exception {
-    SchemaField sf = new SchemaField("inputFieldName", new org.apache.solr.schema.FieldType() {
-
-      @Override
-      public UninvertingReader.Type getUninversionType(SchemaField sf) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-      }
-
-      @Override
-      public void write(TextResponseWriter writer, String name, IndexableField f) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-      }
-
-      @Override
-      public SortField getSortField(SchemaField field, boolean top) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-      }
-
+    SchemaField sf = new SchemaField("inputFieldName", new TextField() {
       @Override
       public Analyzer getIndexAnalyzer() {
         return new Analyzer() {
@@ -132,7 +106,8 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       }
 
     });
-    XrefUpdateRequestProcessor blah = new XrefUpdateRequestProcessor(null, sf, "outputFieldName", 
+    SchemaField outputFieldSF = new SchemaField("outputFieldName", new TextField());
+    XrefUpdateRequestProcessor blah = new XrefUpdateRequestProcessor(null, sf, outputFieldSF, 
         Collections.singletonList(new BlahFactory(Collections.EMPTY_MAP, "copyFieldName")));
     AddUpdateCommand cmd = new AddUpdateCommand(null);
     SolrInputField sif = new SolrInputField("inputFieldName");
@@ -145,6 +120,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
     long start = System.currentTimeMillis();
     blah.processAdd(cmd);
     blah.close();
+    System.err.println(cmd.solrDoc);
     System.err.println("duration: "+(System.currentTimeMillis() - start));
   }
   
@@ -152,6 +128,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
 
     private final String inputFieldName;
     private final String outputField;
+    private final FieldType outputFieldType;
     private final List<CopyFieldFilterFactory> filters;
     private final Analyzer analyzer;
     private final ExecutorService executor;
@@ -168,11 +145,12 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       }
     }
 
-    public XrefUpdateRequestProcessor(UpdateRequestProcessor next, SchemaField inputField, String outputField, 
+    public XrefUpdateRequestProcessor(UpdateRequestProcessor next, SchemaField inputField, SchemaField outputField, 
         List<CopyFieldFilterFactory> filters) {
       super(next);
       this.inputFieldName = inputField.getName();
-      this.outputField = outputField;
+      this.outputField = outputField.getName();
+      this.outputFieldType = PreAnalyzedField.createFieldType(outputField);
       this.filters = filters;
       this.analyzer = inputField.getType().getIndexAnalyzer();
       this.executor = Executors.newCachedThreadPool();
@@ -193,9 +171,9 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       int i = 0;
       for (Object val : inputVals) {
         if (parallel) {
-          exec.submit(new ParallelAnalyzer(i, inputFieldName, (String)val, analyzer, outputField, filters));
+          exec.submit(new ParallelAnalyzer(i, inputFieldName, (String)val, analyzer, outputField, outputFieldType, filters));
         } else {
-          replacements[i] = preAnalyze(inputFieldName, (String)val, analyzer, outputField, filters);
+          replacements[i] = preAnalyze(inputFieldName, (String)val, analyzer, outputField, outputFieldType, filters);
         }
         i++;
       }
@@ -233,7 +211,10 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
         }
       }
       for (Entry<String, Collection<Object>> e : buildValues.entrySet()) {
-        doc.setField(e.getKey(), e.getValue());
+        Collection<Object> val = e.getValue();
+        if (val != null && !val.isEmpty()) {
+          doc.setField(e.getKey(), e.getValue());
+        }
       }
       super.processAdd(cmd);
     }
@@ -287,7 +268,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       if (!done) {
         throw new IllegalStateException();
       } else {
-        return new SimpleImmutableEntry<>(copyFieldDest, new ArrayList<>(vals));
+        return vals.isEmpty() ? null : new SimpleImmutableEntry<>(copyFieldDest, new ArrayList<>(vals));
       }
     }
     
@@ -329,7 +310,8 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
     
   }
   
-  private static Map<String, Object> preAnalyze(String inputFieldName, String input, Analyzer analyzer, String outputFieldName, List<CopyFieldFilterFactory> filters) throws IOException {
+  private static Map<String, Object> preAnalyze(String inputFieldName, String input, Analyzer analyzer, String outputFieldName, 
+      FieldType outputFieldType, List<CopyFieldFilterFactory> filters) throws IOException {
     TokenStream ts = analyzer.tokenStream(inputFieldName, input);
     List<CopyFieldTokenFilter> copyFieldFilters;
     if (filters == null || filters.isEmpty()) {
@@ -343,7 +325,7 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
       }
     }
     ts.reset();
-    String tsJson = parser.toFormattedString(new Field(inputFieldName, ts, DUMMY));
+    String tsJson = parser.toFormattedString(new Field(outputFieldName, ts, outputFieldType));
     ts.end();
     ts.close();
     if (copyFieldFilters == null || copyFieldFilters.isEmpty()) {
@@ -371,21 +353,24 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
     private final String input;
     private final Analyzer analyzer;
     private final String outputFieldName;
+    private final FieldType outputFieldType;
     private final List<CopyFieldFilterFactory> filters;
     
-    public ParallelAnalyzer(int index, String fieldName, String input, Analyzer analyzer, String outputFieldName, List<CopyFieldFilterFactory> filters) {
+    public ParallelAnalyzer(int index, String fieldName, String input, Analyzer analyzer, String outputFieldName, 
+        FieldType outputFieldType, List<CopyFieldFilterFactory> filters) {
       this.index = index;
       this.fieldName = fieldName;
       this.input = input;
       this.analyzer = analyzer;
       this.outputFieldName = outputFieldName;
+      this.outputFieldType = outputFieldType;
       this.filters = filters;
     }
     
     @Override
     public Entry<Integer, Map<String, Object>> call() {
       try {
-        return new SimpleImmutableEntry<>(index, preAnalyze(fieldName, input, analyzer, outputFieldName, filters));
+        return new SimpleImmutableEntry<>(index, preAnalyze(fieldName, input, analyzer, outputFieldName, outputFieldType, filters));
       } catch (IOException ex) {
         ex.printStackTrace(System.err);
         throw new RuntimeException(ex);
