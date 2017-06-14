@@ -62,7 +62,11 @@ public class MultiPartString {
     String filing = null;
     if(parts.length > 0) {
       normalized = parts[0];
-      filing = parts[1];
+      if (parts.length > 1) {
+        filing = parts[1];
+      } else {
+        filing = normalized;
+      }
     }
     String prefix = null;
     if(parts.length > 2) {
