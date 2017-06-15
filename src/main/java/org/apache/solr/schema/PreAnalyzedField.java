@@ -27,13 +27,17 @@ import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
+import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.queries.function.valuesource.SortedSetFieldSource;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.util.Attribute;
 import org.apache.lucene.util.AttributeFactory;
+import org.apache.lucene.util.AttributeImpl;
 import org.apache.lucene.util.AttributeSource.State;
 import org.apache.lucene.util.AttributeSource;
 import org.apache.solr.analysis.SolrAnalyzer;
@@ -339,6 +343,10 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
         throw e;
       }
       it = cachedStates.iterator();
+
+      // preload attributes cached in org.apache.lucene.index.FieldInvertState.setAttributeSource(AttributeSource attributeSource)
+      addCachedAttribute(this, cachedAttributes, TermToBytesRefAttribute.class);
+      addCachedAttribute(this, cachedAttributes, PayloadAttribute.class);
     }
 
     private void setReaderConsumptionException(IOException e) {
@@ -367,6 +375,12 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
         throw e; // rethrow
       }
     }
+  }
+
+  static <T extends Attribute> T addCachedAttribute(AttributeSource dest, AttributeSource cache, Class<T> attClass) {
+    T ret = (T) cache.addAttribute(attClass);
+    dest.addAttributeImpl((AttributeImpl)ret);
+    return ret;
   }
 
   public static class PreAnalyzedAnalyzer extends SolrAnalyzer {
