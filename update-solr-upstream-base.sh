@@ -33,6 +33,7 @@ org/apache/solr/request/DocValuesFacets.java
 org/apache/solr/schema/PreAnalyzedField.java
 org/apache/solr/schema/JsonPreAnalyzedParser.java
 org/apache/solr/schema/SimplePreAnalyzedParser.java
+org/apache/solr/handler/loader/JsonLoader.java
 EOF
 while read file; do
   mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
