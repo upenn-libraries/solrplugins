@@ -487,20 +487,31 @@ public class JsonLoader extends ContentStreamLoader {
       }
     }
 
-
     void handleAdds() throws IOException {
-      while (true) {
-        AddUpdateCommand cmd = new AddUpdateCommand(req);
-        cmd.commitWithin = commitWithin;
-        cmd.overwrite = overwrite;
-
-        int ev = parser.nextEvent();
-        if (ev == JSONParser.ARRAY_END) break;
-
-        assertEvent(ev, JSONParser.OBJECT_START);
-        cmd.solrDoc = parseDoc(ev);
-        processor.processAdd(cmd);
+      int ev;
+      if ((ev = parser.nextEvent()) != JSONParser.ARRAY_END) {
+        AddUpdateCommand cmd = createCommand(ev);
+        while ((ev = parser.nextEvent()) != JSONParser.ARRAY_END || processLastCommand(cmd)) {
+          processor.processAdd(cmd);
+          cmd = createCommand(ev);
+        }
       }
+    }
+    
+    private boolean processLastCommand(AddUpdateCommand cmd) throws IOException {
+      cmd.isLastDocInBatch = true;
+      processor.processAdd(cmd);
+      return false;
+    }
+
+    private AddUpdateCommand createCommand(int ev) throws IOException {
+      AddUpdateCommand cmd = new AddUpdateCommand(req);
+      cmd.commitWithin = commitWithin;
+      cmd.overwrite = overwrite;
+
+      assertEvent(ev, JSONParser.OBJECT_START);
+      cmd.solrDoc = parseDoc(ev);
+      return cmd;
     }
 
 
