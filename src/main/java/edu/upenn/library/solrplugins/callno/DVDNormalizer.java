@@ -40,6 +40,7 @@ public class DVDNormalizer implements Normalizer {
         }
     }
         
+    @Override
     public String normalize(CharSequence input) {
         Matcher m = prefix.matcher(input);
         if (!m.find()) {

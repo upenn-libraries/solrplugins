@@ -107,6 +107,7 @@ public class DissertationNormalizer implements Normalizer {
         }
     }
     
+    @Override
     public String normalize(CharSequence input) {
         String ret;
         if ((ret = normalizeZero(input)) != null) {

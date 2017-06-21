@@ -113,6 +113,7 @@ public class CDNormalizer implements Normalizer {
         }
     }
     
+    @Override
     public String normalize(CharSequence input) {
         String ret;
         if ((ret = normalizeLeading(input)) != null) {

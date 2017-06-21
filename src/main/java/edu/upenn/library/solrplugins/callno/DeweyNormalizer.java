@@ -32,6 +32,7 @@ public class DeweyNormalizer implements Normalizer {
         zeroPadsOrdinal = new Padder(sb, numDecLimit, '0', false);
     }
     
+    @Override
     public String normalize(CharSequence input) {
         Matcher m = p.matcher(input);
         if (!m.matches()) {

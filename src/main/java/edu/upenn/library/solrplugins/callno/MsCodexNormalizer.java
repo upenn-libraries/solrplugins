@@ -23,6 +23,7 @@ public class MsCodexNormalizer implements Normalizer {
         zeroPads = new Padder(new StringBuilder(numLimit), numLimit, '0', false);
     }
     
+    @Override
     public String normalize(CharSequence input) {
         Matcher m = msCodexCallNoPattern.matcher(input);
         if (!m.matches()) {

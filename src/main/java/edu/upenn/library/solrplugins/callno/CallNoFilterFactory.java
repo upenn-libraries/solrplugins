@@ -40,6 +40,7 @@ public class CallNoFilterFactory extends TokenFilterFactory implements ResourceL
         return new CallNoFilter(input, normalizers, defaultType);
     }
 
+    @Override
     public void inform(ResourceLoader loader) throws IOException {
         String[] entries = normalizersConfigString.split("\\s*,\\s");
         normalizers = new Entry[entries.length];
@@ -59,7 +60,7 @@ public class CallNoFilterFactory extends TokenFilterFactory implements ResourceL
                 className = defaultPackagePrefix.concat(className);
             }
             Normalizer norm = loader.newInstance(className, Normalizer.class);
-            normalizers[i] = new SimpleImmutableEntry<String, Normalizer>(type, norm);
+            normalizers[i] = new SimpleImmutableEntry<>(type, norm);
         }
     }
     

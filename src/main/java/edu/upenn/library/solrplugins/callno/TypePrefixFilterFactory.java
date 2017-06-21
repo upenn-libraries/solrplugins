@@ -41,7 +41,7 @@ public class TypePrefixFilterFactory extends TokenFilterFactory {
             if (types.length == 1) {
                 return Collections.singleton(types[0]); 
             } else {
-                return new HashSet<String>(Arrays.asList(types));
+                return new HashSet<>(Arrays.asList(types));
             }
         }
     }

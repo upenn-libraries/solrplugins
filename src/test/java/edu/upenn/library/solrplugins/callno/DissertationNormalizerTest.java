@@ -17,7 +17,7 @@ import junit.framework.TestCase;
 public class DissertationNormalizerTest extends TestCase {
     
     private static final Pattern TAB_SPLIT = Pattern.compile("\t", Pattern.LITERAL);
-    private static final Map<String, String> testCases = new HashMap<String, String>();
+    private static final Map<String, String> testCases = new HashMap<>();
     
     static {
         String classname = DissertationNormalizerTest.class.getSimpleName();

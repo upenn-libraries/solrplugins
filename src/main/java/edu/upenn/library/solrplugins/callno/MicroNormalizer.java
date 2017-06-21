@@ -27,6 +27,7 @@ public class MicroNormalizer implements Normalizer {
     
     private static final Pattern nonAlpha = Pattern.compile("[^a-z]+");
     
+    @Override
     public String normalize(CharSequence input) {
         Matcher m = p.matcher(input);
         if (!m.matches()) {
