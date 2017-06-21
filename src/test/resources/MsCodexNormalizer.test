@@ -1,0 +1,9 @@
+0000100001 whatever	ms codex 1 item 1 whatever
+0000100002something	ms. codex 1:2something
+00200	ms. codex 200
+0020000000folio	ms. codex 200folio
+0020000001 folio	ms. codex 200:1 folio
+0020000001 folio	mscodex200:1 folio
+2000000001 folio	ms. codex 20000:1 folio
+	mscodex
+null	ms. codix 1:2something
