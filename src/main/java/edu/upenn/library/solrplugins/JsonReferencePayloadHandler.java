@@ -1,7 +1,9 @@
 package edu.upenn.library.solrplugins;
 
+import com.sun.scenario.effect.impl.prism.ps.PPSPerspectiveTransformPeer;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -282,8 +284,107 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
     return ((Number) val.get(KEY_COUNT)).longValue();
   }
 
+  private static enum KnownRefType { PREF, RELATED, ALT, BROADER, NARROWER };
+  
+  private static class NonStrictRefTypeSortEntry implements Comparable<NonStrictRefTypeSortEntry> {
+
+    private final KnownRefType knownRefType;
+    private final String refType;
+    private final Object val;
+    
+    public NonStrictRefTypeSortEntry(String refType, Object val) {
+      this.refType = refType;
+      this.val = val;
+      switch (refType) {
+        case "PREF":
+          knownRefType = KnownRefType.PREF;
+          break;
+        case "RELATED":
+          knownRefType = KnownRefType.RELATED;
+          break;
+        case "ALT":
+          knownRefType = KnownRefType.ALT;
+          break;
+        case "BROADER":
+          knownRefType = KnownRefType.BROADER;
+          break;
+        case "NARROWER":
+          knownRefType = KnownRefType.NARROWER;
+          break;
+        default:
+          knownRefType = null;
+      }
+    }
+
+    @Override
+    public int compareTo(NonStrictRefTypeSortEntry o) {
+      if (knownRefType != null) {
+        return o.knownRefType == null ? -1 : knownRefType.compareTo(o.knownRefType);
+      } else {
+        return o.knownRefType != null ? 1 : refType.compareTo(o.refType);
+      }
+    }
+    
+  }
+  
+  private static class CountSortEntry implements Comparable<CountSortEntry> {
+
+    private final Long count;
+    private final String name;
+    private final NamedList<Object> val;
+
+    public CountSortEntry(String name, NamedList<Object> val) {
+      this.name = name;
+      this.val = val;
+      this.count = (Long)val.get(KEY_COUNT);
+    }
+    
+    @Override
+    public int compareTo(CountSortEntry o) {
+      int ret;
+      if ((ret = o.count.compareTo(count)) != 0) {
+        return ret;
+      } else {
+        return name.compareToIgnoreCase(o.name);
+      }
+    }
+    
+  }
+  
   @Override
   public Object updateValueExternalRepresentation(NamedList<Object> internal) {
+    NamedList<Object> refs = (NamedList<Object>)internal.get(KEY_REFS);
+    int size;
+    if (refs == null) {
+      return null;
+    } else if ((size = refs.size()) > 1) {
+      NonStrictRefTypeSortEntry[] sort = new NonStrictRefTypeSortEntry[size];
+      for (int i = 0; i < size; i++) {
+        sort[i] = new NonStrictRefTypeSortEntry(refs.getName(i), refs.getVal(i));
+      }
+      Arrays.sort(sort);
+      for (int i = 0; i < size; i++) {
+        NonStrictRefTypeSortEntry entry = sort[i];
+        refs.setName(i, entry.refType);
+        refs.setVal(i, entry.val);
+      }
+    }
+    for (int i = 0; i < size; i++) {
+      NamedList<Object> refTerms = (NamedList<Object>)refs.getVal(i);
+      int refTermCount;
+      if (refTerms != null && (refTermCount = refTerms.size()) > 1) {
+        CountSortEntry[] refTermSort = new CountSortEntry[refTermCount];
+        for (int j = 0; j < refTermCount; j++) {
+          refTermSort[j] = new CountSortEntry(refTerms.getName(j), (NamedList<Object>)refTerms.getVal(j));
+        }
+        Arrays.sort(refTermSort);
+        for (int j = 0; j < refTermCount; j++) {
+          CountSortEntry entry = refTermSort[j];
+          refTerms.setName(j, entry.name);
+          refTerms.setVal(j, entry.val);
+        }
+      }
+    }
     return null;
   }
 
