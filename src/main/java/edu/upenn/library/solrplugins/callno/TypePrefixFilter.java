@@ -38,7 +38,7 @@ public class TypePrefixFilter extends TokenFilter {
                 int newLength = type.length() + (delim == -1 ? 0 : 1) + termAtt.length();
                 char[] termBuff = termAtt.buffer();
                 if (termBuff.length < newLength) {
-                    termAtt.resizeBuffer(newLength);
+                    termBuff = termAtt.resizeBuffer(newLength);
                 }
                 System.arraycopy(termBuff, 0, termBuff, type.length() + (delim == -1 ? 0 : 1), termAtt.length());
                 type.getChars(0, type.length(), termBuff, 0);
