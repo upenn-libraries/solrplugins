@@ -93,15 +93,15 @@ public class DocBasedFacetResponseBuilder {
 
     private int localDocIndex = -1;
 
-    public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc, int nTerms,
-        Predicate<BytesRef> termFilter, int mincount, int[] counts, CharsRefBuilder charsRef, boolean extend,
-        SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, List<Entry<LeafReader, Bits>> leaves, String fieldName, T ft, NamedList res, Set<String> fl) {
+    public LocalDocEnv(int offset, int limit, int startTermIndex, int adjust, int targetIdx, String targetDoc,
+        SchemaField targetDocIdField, int nTerms, Predicate<BytesRef> termFilter, int mincount, int[] counts, CharsRefBuilder charsRef,
+        boolean extend, SortedSetDocValues si, SolrIndexSearcher searcher, DocSet docs, List<Entry<LeafReader, Bits>> leaves,
+        String fieldName, T ft, NamedList res, Set<String> fl) {
       super(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter, mincount, counts,
           charsRef, extend, si, searcher, leaves, fieldName, ft, res);
-      SchemaField uniqueKeyField = searcher.getSchema().getUniqueKeyField();
       this.targetDoc = new BytesRef(targetDoc);
-      this.idField = uniqueKeyField.getName();
-      this.sortField = uniqueKeyField.getSortField(false);
+      this.idField = targetDocIdField.getName();
+      this.sortField = targetDocIdField.getSortField(false);
       this.idFieldComparator = this.sortField.getBytesComparator();
       this.sort = new Sort(sortField);
       this.docs = docs;

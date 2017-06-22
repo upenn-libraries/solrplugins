@@ -168,12 +168,12 @@ public class DocValuesFacets {
     
   }
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean ignoreCase, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, String contains, boolean ignoreCase, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, SchemaField targetDocIdField, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
     final Predicate<BytesRef> termFilter = new SubstringBytesRefFilter(contains, ignoreCase);
-    return getCounts(searcher, docs, fieldName, offset, limit, mincount, missing, sort, prefix, termFilter, fdebug, extend, target, targetDoc, external, fl, facetCacheThreshold, rb);
+    return getCounts(searcher, docs, fieldName, offset, limit, mincount, missing, sort, prefix, termFilter, fdebug, extend, target, targetDoc, targetDocIdField, external, fl, facetCacheThreshold, rb);
   }
   
-  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, Predicate<BytesRef> termFilter, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
+  public static NamedList<Integer> getCounts(SolrIndexSearcher searcher, DocSet docs, String fieldName, int offset, int limit, int mincount, boolean missing, String sort, String prefix, Predicate<BytesRef> termFilter, FacetDebugInfo fdebug, boolean extend, BytesRef target, String targetDoc, SchemaField targetDocIdField, boolean external, Set<String> fl, long facetCacheThreshold, ResponseBuilder rb) throws IOException {
     SchemaField schemaField = searcher.getSchema().getField(fieldName);
     FieldType ft = schemaField.getType();
     NamedList<Integer> res = new NamedList<>();
@@ -413,7 +413,7 @@ public class DocValuesFacets {
             if (targetIdx < 0) {
               targetDoc = "";
             }
-            env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, nTerms, termFilter,
+            env = new LocalDocEnv(offset, limit, startTermIndex, adjust, targetIdx, targetDoc, targetDocIdField, nTerms, termFilter,
                 mincount, counts, charsRef, extend, si, searcher, docs, tmp, fieldName, ft, res, fl);
           } else {
             env = new LocalTermEnv(offset, limit, startTermIndex, adjust, targetIdx, nTerms, termFilter,

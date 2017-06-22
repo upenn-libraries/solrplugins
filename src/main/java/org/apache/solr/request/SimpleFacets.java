@@ -453,9 +453,18 @@ public class SimpleFacets {
     }
     String target = params.getFieldParam(field, FacetParams.FACET_TARGET);
     String targetDoc = null;
+    SchemaField targetDocIdField = null;
     BytesRef targetBr = null;
     if (target != null) {
       targetDoc = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC);
+      if (targetDoc != null) {
+        String targetDocIdFieldName = params.getFieldParam(field, FacetParams.FACET_TARGET_DOC_ID_FIELD);
+        if (targetDocIdFieldName != null) {
+          targetDocIdField = searcher.getSchema().getField(targetDocIdFieldName);
+        } else {
+          targetDocIdField = searcher.getSchema().getUniqueKeyField();
+        }
+      }
       boolean targetStrict = params.getFieldBool(field, FacetParams.FACET_TARGET_STRICT, targetDoc != null && !targetDoc.isEmpty());
       if (ft instanceof MultiSerializable) {
         targetBr = ((MultiSerializable)ft).normalizeQueryTarget(target, targetStrict, field);
@@ -597,7 +606,7 @@ public class SimpleFacets {
           } else {
             threshold = DEFAULT_PERSEG_FACET_CACHE_THRESHOLD;
           }
-          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, termFilter, fdebug, extend, targetBr, targetDoc, external, fl, threshold, rb);
+          counts = DocValuesFacets.getCounts(searcher, docs, field, offset,limit, mincount, missing, sort, prefix, termFilter, fdebug, extend, targetBr, targetDoc, targetDocIdField, external, fl, threshold, rb);
           break;
         default:
           throw new AssertionError();
