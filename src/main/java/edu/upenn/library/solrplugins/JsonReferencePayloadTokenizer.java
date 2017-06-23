@@ -175,7 +175,7 @@ public final class JsonReferencePayloadTokenizer extends Tokenizer {
         parser.nextToken();
         String stringComponentValue = parser.getValueAsString();
         if (MULTIPART_STRING_PREFIX.equals(stringComponentType)) {
-          prefix = stringComponentValue;
+          prefix = stringComponentValue.isEmpty() ? null : stringComponentValue;
         } else if (MULTIPART_STRING_FILING.equals(stringComponentType)) {
           filing = stringComponentValue;
         } else {
