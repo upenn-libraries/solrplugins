@@ -145,7 +145,16 @@ public class CaseInsensitiveSortingTextField extends TextField implements MultiS
       return indexedForm;
     } else {
       int endIndex = indexedForm.indexOf(delim, startIndex);
-      return endIndex < 0 ? indexedForm.substring(startIndex) : indexedForm.substring(startIndex, endIndex);
+      if (endIndex < 0) {
+        return indexedForm.substring(startIndex);
+      } else {
+        String displayPart = indexedForm.substring(startIndex, endIndex);
+        if ((endIndex += (hierarchyLevel + 1)) >= indexedForm.length()) {
+          return displayPart;
+        } else {
+          return indexedForm.substring(endIndex).concat(displayPart);
+        }
+      }
     }
   }
 

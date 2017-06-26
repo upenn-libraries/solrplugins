@@ -1,6 +1,5 @@
 package edu.upenn.library.solrplugins;
 
-import com.sun.scenario.effect.impl.prism.ps.PPSPerspectiveTransformPeer;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
@@ -134,7 +133,7 @@ public class JsonReferencePayloadHandler implements FacetPayload<NamedList<Objec
 
     NamedList<Object> entry = buildEntryValue(term, count, t, leaves);
 
-    res.add(term.getDisplay(), entry);
+    res.add(termKey, entry);
     return true;
   }
 
