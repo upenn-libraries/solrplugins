@@ -49,8 +49,10 @@ import org.apache.solr.request.BidirectionalFacetResponseBuilder.LimitMinder;
 import org.apache.solr.response.DocsStreamer;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.SchemaField;
+import org.apache.solr.search.DocIterator;
 import org.apache.solr.search.DocList;
 import org.apache.solr.search.DocSet;
+import org.apache.solr.search.SolrDocumentFetcher;
 import org.apache.solr.search.SolrIndexSearcher;
 
 /**
@@ -125,7 +127,11 @@ public class DocBasedFacetResponseBuilder {
         activeTermIndex = termIndex;
         documents = new Document[size];
         docIds = new BytesRef[size];
-        searcher.readDocs(documents, docList, fl);
+        SolrDocumentFetcher docFetcher = searcher.getDocFetcher();
+        DocIterator docIter = docList.iterator();
+        for (int i = 0; i < documents.length; i++) {
+          documents[i] = docFetcher.doc(docIter.nextDoc(), fl);
+        }
         localDocIndex = -1;
         for (int i = 0; i < size; i++) {
           docIds[i] = new BytesRef(documents[i].get(idField));
@@ -252,7 +258,7 @@ public class DocBasedFacetResponseBuilder {
       }
       String docIdStr = docIds[localDocIndex].utf8ToString();
       // Because binary response writer does not recognize Lucene Documents, and treats them as simply Iterable.
-      SolrDocument doc = DocsStreamer.getDoc(documents[localDocIndex], this.searcher.getSchema());
+      SolrDocument doc = DocsStreamer.convertLuceneDocToSolrDoc(documents[localDocIndex], this.searcher.getSchema());
       if (!limitMinder.updateEntry(currentTerm, docIdStr, doc, entryBuilder)) {
         Deque<Entry<String, SolrDocument>> docDeque = new ArrayDeque<>(4);
         docDeque.add(new SimpleImmutableEntry<>(docIdStr, doc));
