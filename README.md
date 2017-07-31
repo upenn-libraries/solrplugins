@@ -270,6 +270,19 @@ This "document-centric" extension is implemented orthogonally to the
 "term metadata"/"cross-reference" feature introduced in this project; each feature may
 be used independently, or they may be used in combination.
 
+## Building the jar file
+
+The project jar file may be assembled using Apache Maven from the project root:
+```sh
+mvn clean install
+```
+... which leaves a built copy of the jar file at `target/solrplugins-$version.jar`
+
+Because this project overrides core Solr classes (see below) it is tightly coupled to
+particular versions of Solr. Ensure that the version of Solr that you are running is
+the same as the target Solr version for plugins release (check `lucene-solr-version`
+property in `pom.xml` file).
+
 ## How is the project structured and updated?
 
 The simplest and most sustainable approach to introducing this functionality involves
@@ -289,4 +302,16 @@ upstream changes and making it apparent when any such changes require manual int
 Although this approach to extending Solr code may seem slightly unorthodox, it has
 served very well thus far.
 
+## Deployment
 
+One consequence of this approach to project structure and maintenance is that care must
+be taken in deployment to load classes from the solrplugins jar file *before*
+corresponding classes from the stock Solr jar files. This is best accomplished using
+Jetty's [`extraClasspath` method](https://www.eclipse.org/jetty/documentation/current/jetty-classloading.html#using-extra-classpath-method)
+to affect the load order of jar files within Jetty, adding the following child element:
+```xml
+  <Set name="extraClasspath">[path-to]/solrplugins.jar</Set>
+```
+to the Solr Jetty `WebAppContext` configuration. The relevant config file in the
+standard Solr distribution is `server/contexts/solr-jetty-context.xml`. The path is
+rooted at `/opt/solr/` in the stock Solr docker image.
