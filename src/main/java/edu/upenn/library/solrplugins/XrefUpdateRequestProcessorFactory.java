@@ -342,37 +342,47 @@ public class XrefUpdateRequestProcessorFactory extends UpdateRequestProcessorFac
           throw new RuntimeException(ex);
         }
       }
-      for (Entry<AddUpdateCommand, Map<String, Object>[]> docEntry : completed) {
-        cmd = docEntry.getKey();
-        doc = cmd.solrDoc;
-        replacements = docEntry.getValue();
-        for (String inputFieldName : config.keySet()) {
-          doc.removeField(inputFieldName);
-        }
-        Map<String, Collection<Object>> buildValues = new HashMap<>();
-        for (Map<String, Object> replacement : replacements) {
-          for (Entry<String, Object> e : replacement.entrySet()) {
-            String fieldName = e.getKey();
-            Collection<Object> vals = buildValues.get(fieldName);
-            if (vals == null) {
-              vals = new ArrayList<>(maxTermsPerField);
-              buildValues.put(fieldName, vals);
-            }
-            Object val = e.getValue();
-            if (val instanceof Collection) {
-              vals.addAll((Collection<Object>) val);
-            } else {
-              vals.add(val);
+      boolean lastInBatch = cmd.isLastDocInBatch;
+      Iterator<Entry<AddUpdateCommand, Map<String, Object>[]>> completedIter = completed.iterator();
+      if (completedIter.hasNext()) {
+        boolean hasNext;
+        do {
+          Entry<AddUpdateCommand, Map<String, Object>[]> docEntry = completedIter.next();
+          cmd = docEntry.getKey();
+          doc = cmd.solrDoc;
+          replacements = docEntry.getValue();
+          for (String inputFieldName : config.keySet()) {
+            doc.removeField(inputFieldName);
+          }
+          Map<String, Collection<Object>> buildValues = new HashMap<>();
+          for (Map<String, Object> replacement : replacements) {
+            for (Entry<String, Object> e : replacement.entrySet()) {
+              String fieldName = e.getKey();
+              Collection<Object> vals = buildValues.get(fieldName);
+              if (vals == null) {
+                vals = new ArrayList<>(maxTermsPerField);
+                buildValues.put(fieldName, vals);
+              }
+              Object val = e.getValue();
+              if (val instanceof Collection) {
+                vals.addAll((Collection<Object>)val);
+              } else {
+                vals.add(val);
+              }
             }
           }
-        }
-        for (Entry<String, Collection<Object>> e : buildValues.entrySet()) {
-          Collection<Object> val = e.getValue();
-          if (val != null && !val.isEmpty()) {
-            doc.setField(e.getKey(), e.getValue());
+          for (Entry<String, Collection<Object>> e : buildValues.entrySet()) {
+            Collection<Object> val = e.getValue();
+            if (val != null && !val.isEmpty()) {
+              doc.setField(e.getKey(), e.getValue());
+            }
           }
-        }
-        super.processAdd(cmd);
+          hasNext = completedIter.hasNext();
+          if (lastInBatch) {
+            cmd.isLastDocInBatch = !hasNext;
+          }
+          super.processAdd(cmd);
+        } while (hasNext);
       }
     }
 
