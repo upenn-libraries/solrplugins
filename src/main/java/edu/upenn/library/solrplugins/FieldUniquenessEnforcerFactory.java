@@ -45,10 +45,10 @@ public class FieldUniquenessEnforcerFactory extends UpdateRequestProcessorFactor
   @Override
   public void init(NamedList args) {
     this.fieldName = (String)args.get(ENFORCE_UNIQUE_FIELD_ARGNAME);
-    String maxFieldValueLength = (String)args.get(MAX_FIELD_VALUE_LENGTH_ARGNAME);
-    this.maxFieldValueLength = maxFieldValueLength != null ? Integer.parseInt(maxFieldValueLength) : DEFAULT_MAX_FIELD_VALUE_LENGTH;
-    String bufferLimit = (String)args.get(BUFFER_LIMIT_ARGNAME);
-    this.bufferLimit = bufferLimit != null ? Integer.parseInt(bufferLimit) : DEFAULT_BUFFER_LIMIT;
+    Integer maxFieldValueLength = (Integer)args.get(MAX_FIELD_VALUE_LENGTH_ARGNAME);
+    this.maxFieldValueLength = maxFieldValueLength != null ? maxFieldValueLength : DEFAULT_MAX_FIELD_VALUE_LENGTH;
+    Integer bufferLimit = (Integer)args.get(BUFFER_LIMIT_ARGNAME);
+    this.bufferLimit = bufferLimit != null ? bufferLimit : DEFAULT_BUFFER_LIMIT;
     super.init(args);
   }
 
