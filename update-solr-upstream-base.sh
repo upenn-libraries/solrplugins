@@ -41,6 +41,15 @@ while read file; do
 done << EOF
 org/apache/solr/common/params/FacetParams.java
 EOF
+while read file; do
+  mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
+  curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/lucene/core/src/java/$file" > "$BASE_DIR/src/main/java/$file"
+done << EOF
+org/apache/lucene/search/spans/TermSpans.java
+org/apache/lucene/search/spans/SpanTermQuery.java
+org/apache/lucene/search/spans/SpanNearQuery.java
+org/apache/lucene/search/spans/NearSpansOrdered.java
+EOF
 
 git add src
 git commit -m "solr upstream base for tag \"$ref\""
