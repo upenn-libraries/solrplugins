@@ -43,6 +43,12 @@ org/apache/solr/common/params/FacetParams.java
 EOF
 while read file; do
   mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
+  curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/lucene/analysis/common/src/java/$file" > "$BASE_DIR/src/main/java/$file"
+done << EOF
+org/apache/lucene/analysis/miscellaneous/WordDelimiterGraphFilter.java
+EOF
+while read file; do
+  mkdir -p "$BASE_DIR/src/main/java/${file%/*}"
   curl -s "https://raw.githubusercontent.com/apache/lucene-solr/$ref/lucene/core/src/java/$file" > "$BASE_DIR/src/main/java/$file"
 done << EOF
 org/apache/lucene/search/spans/TermSpans.java
