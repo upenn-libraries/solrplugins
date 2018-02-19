@@ -27,19 +27,20 @@ import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.queries.function.valuesource.SortedSetFieldSource;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortedSetSelector;
 import org.apache.lucene.util.AttributeFactory;
 import org.apache.lucene.util.AttributeSource.State;
 import org.apache.lucene.util.AttributeSource;
 import org.apache.solr.analysis.SolrAnalyzer;
 import org.apache.solr.response.TextResponseWriter;
 import org.apache.solr.search.QParser;
-import org.apache.solr.search.Sorting;
 import org.apache.solr.uninverting.UninvertingReader.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -118,11 +119,10 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
   }
 
   @Override
-  public IndexableField createField(SchemaField field, Object value,
-          float boost) {
+  public IndexableField createField(SchemaField field, Object value) {
     IndexableField f = null;
     try {
-      f = fromString(field, String.valueOf(value), boost);
+      f = fromString(field, String.valueOf(value));
     } catch (Exception e) {
       LOG.warn("Error parsing pre-analyzed field '" + field.getName() + "'", e);
       return null;
@@ -132,8 +132,8 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
   
   @Override
   public SortField getSortField(SchemaField field, boolean top) {
-    field.checkSortability();
-    return Sorting.getTextSortField(field.getName(), top, field.sortMissingLast(), field.sortMissingFirst());
+    return getSortedSetSortField(field, SortedSetSelector.Type.MIN, top,
+                                 SortField.STRING_FIRST, SortField.STRING_LAST);
   }
   
   @Override
@@ -224,7 +224,7 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
   }
   
   
-  public IndexableField fromString(SchemaField field, String val, float boost) throws Exception {
+  public IndexableField fromString(SchemaField field, String val) throws Exception {
     if (val == null || val.trim().length() == 0) {
       return null;
     }
@@ -263,13 +263,10 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
         }
       } else {
         if (f != null) {
-          f.fieldType().setIndexOptions(IndexOptions.NONE);
-          f.fieldType().setTokenized(false);
+          type.setIndexOptions(IndexOptions.NONE);
+          type.setTokenized(false);
         }
       }
-    }
-    if (f != null) {
-      f.setBoost(boost);
     }
     return f;
   }
@@ -284,6 +281,7 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
     private byte[] binaryValue = null;
     private PreAnalyzedParser parser;
     private IOException readerConsumptionException;
+    private int lastEndOffset;
 
     public PreAnalyzedTokenizer(PreAnalyzedParser parser) {
       // we don't pack attributes: since we are used for (de)serialization and dont want bloat.
@@ -311,6 +309,8 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
       
       AttributeSource.State state = it.next();
       restoreState(state.clone());
+      // TODO: why can't I lookup the OffsetAttribute up in ctor instead?
+      lastEndOffset = addAttribute(OffsetAttribute.class).endOffset();
       return true;
     }
 
@@ -327,6 +327,13 @@ public class PreAnalyzedField extends TextField implements HasImplicitIndexAnaly
         throw e;
       }
       it = cachedStates.iterator();
+    }
+
+    @Override
+    public void end() throws IOException {
+      super.end();
+      // we must set the end offset correctly so multi-valued fields don't try to send offsets backwards:
+      addAttribute(OffsetAttribute.class).setOffset(lastEndOffset, lastEndOffset);
     }
 
     private void setReaderConsumptionException(IOException e) {

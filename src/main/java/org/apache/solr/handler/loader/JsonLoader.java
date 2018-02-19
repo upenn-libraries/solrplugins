@@ -441,8 +441,6 @@ public class JsonLoader extends ContentStreamLoader {
       cmd.commitWithin = commitWithin;
       cmd.overwrite = overwrite;
 
-      float boost = 1.0f;
-
       while (true) {
         int ev = parser.nextEvent();
         if (ev == JSONParser.STRING) {
@@ -460,10 +458,8 @@ public class JsonLoader extends ContentStreamLoader {
             } else if (UpdateRequestHandler.COMMIT_WITHIN.equals(key)) {
               cmd.commitWithin = (int) parser.getLong();
             } else if ("boost".equals(key)) {
-              boost = Float.parseFloat(parser.getNumberChars().toString());
-              String message = "Using document boost: " + boost + " != 1.0 will not be supported anymore in 7.0. "
-                  + "Please index scoring factors into a separate field and combine them with the main query's "
-                  + "score using function queries.";
+              String boost = parser.getNumberChars().toString();
+              String message = "Ignoring document boost: " + boost + " as index-time boosts are not supported anymore";
               if (WARNED_ABOUT_INDEX_TIME_BOOSTS.compareAndSet(false, true)) {
                 log.warn(message);
               } else {
@@ -481,7 +477,6 @@ public class JsonLoader extends ContentStreamLoader {
           if (cmd.solrDoc == null) {
             throw new SolrException(SolrException.ErrorCode.BAD_REQUEST, "Missing solr document at [" + parser.getPosition() + "]");
           }
-          cmd.solrDoc.setDocumentBoost(boost);
           return cmd;
         } else {
           throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
@@ -550,7 +545,7 @@ public class JsonLoader extends ContentStreamLoader {
           // SolrInputDocument.addField will do the right thing
           // if the doc already has another value for this field
           // (ie: repeating fieldname keys)
-          sdoc.addField(sif.getName(), sif.getValue(), sif.getBoost());
+          sdoc.addField(sif.getName(), sif.getValue());
         }
 
       }
@@ -562,14 +557,13 @@ public class JsonLoader extends ContentStreamLoader {
         parseExtendedFieldValue(sif, ev);
       } else {
         Object val = parseNormalFieldValue(ev, sif.getName());
-        sif.setValue(val, 1.0f);
+        sif.setValue(val);
       }
     }
 
     private void parseExtendedFieldValue(SolrInputField sif, int ev) throws IOException {
       assert ev == JSONParser.OBJECT_START;
 
-      float boost = 1.0f;
       Object normalFieldValue = null;
       Map<String, Object> extendedInfo = null;
 
@@ -587,10 +581,7 @@ public class JsonLoader extends ContentStreamLoader {
                     + "Unexpected " + JSONParser.getEventString(ev) + " at [" + parser.getPosition() + "], field=" + sif.getName());
               }
 
-              boost = (float) parser.getDouble();
-              String message = "Using field boost: " + boost + " != 1.0 will not be supported anymore in 7.0. "
-                  + "Please index scoring factors into a separate field and combine them with the main query's "
-                  + "score using function queries.";
+              String message = "Ignoring field boost: " + parser.getDouble() + " as index-time boosts are not supported anymore";
               if (WARNED_ABOUT_INDEX_TIME_BOOSTS.compareAndSet(false, true)) {
                 log.warn(message);
               } else {
@@ -615,9 +606,9 @@ public class JsonLoader extends ContentStreamLoader {
               if (normalFieldValue != null) {
                 extendedInfo.put("value", normalFieldValue);
               }
-              sif.setValue(extendedInfo, boost);
+              sif.setValue(extendedInfo);
             } else {
-              sif.setValue(normalFieldValue, boost);
+              sif.setValue(normalFieldValue);
             }
             return;
 

@@ -33,6 +33,7 @@ import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Weight;
 
 /** Matches spans which are near one another.  One can specify <i>slop</i>, the
  * maximum number of intervening unmatched positions, as well as whether
@@ -176,20 +177,20 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
   }
 
   @Override
-  public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
+  public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores, float boost) throws IOException {
     List<SpanWeight> subWeights = new ArrayList<>();
     for (SpanQuery q : clauses) {
-      subWeights.add(q.createWeight(searcher, false));
+      subWeights.add(q.createWeight(searcher, false, boost));
     }
-    return new SpanNearWeight(subWeights, searcher, needsScores ? getTermContexts(subWeights) : null);
+    return new SpanNearWeight(subWeights, searcher, needsScores ? getTermContexts(subWeights) : null, boost);
   }
 
   public class SpanNearWeight extends SpanWeight {
 
     final List<SpanWeight> subWeights;
 
-    public SpanNearWeight(List<SpanWeight> subWeights, IndexSearcher searcher, Map<Term, TermContext> terms) throws IOException {
-      super(SpanNearQuery.this, searcher, terms);
+    public SpanNearWeight(List<SpanWeight> subWeights, IndexSearcher searcher, Map<Term, TermContext> terms, float boost) throws IOException {
+      super(SpanNearQuery.this, searcher, terms, boost);
       this.subWeights = subWeights;
     }
 
@@ -229,6 +230,16 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
         w.extractTerms(terms);
       }
     }
+
+    @Override
+    public boolean isCacheable(LeafReaderContext ctx) {
+      for (Weight w : subWeights) {
+        if (w.isCacheable(ctx) == false)
+          return false;
+      }
+      return true;
+    }
+
   }
 
   @Override
@@ -295,14 +306,14 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
     }
 
     @Override
-    public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
-      return new SpanGapWeight(searcher);
+    public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores, float boost) throws IOException {
+      return new SpanGapWeight(searcher, boost);
     }
 
     private class SpanGapWeight extends SpanWeight {
 
-      SpanGapWeight(IndexSearcher searcher) throws IOException {
-        super(SpanGapQuery.this, searcher, null);
+      SpanGapWeight(IndexSearcher searcher, float boost) throws IOException {
+        super(SpanGapQuery.this, searcher, null, boost);
       }
 
       @Override
@@ -319,6 +330,12 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
       public void extractTerms(Set<Term> terms) {
 
       }
+
+      @Override
+      public boolean isCacheable(LeafReaderContext ctx) {
+        return true;
+      }
+
     }
 
     @Override
