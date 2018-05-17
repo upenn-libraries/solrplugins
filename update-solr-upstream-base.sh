@@ -57,6 +57,8 @@ org/apache/lucene/search/spans/SpanNearQuery.java
 org/apache/lucene/search/spans/NearSpansOrdered.java
 org/apache/lucene/index/DefaultIndexingChain.java
 org/apache/lucene/index/TermsHashPerField.java
+org/apache/lucene/index/TermVectorsConsumerPerField.java
+org/apache/lucene/index/FreqProxTermsWriterPerField.java
 EOF
 
 git add src
