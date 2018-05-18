@@ -55,6 +55,7 @@ org/apache/lucene/search/spans/TermSpans.java
 org/apache/lucene/search/spans/SpanTermQuery.java
 org/apache/lucene/search/spans/SpanNearQuery.java
 org/apache/lucene/search/spans/NearSpansOrdered.java
+org/apache/lucene/search/spans/SpanOrQuery.java
 org/apache/lucene/index/DefaultIndexingChain.java
 org/apache/lucene/index/TermsHashPerField.java
 org/apache/lucene/index/TermVectorsConsumerPerField.java
