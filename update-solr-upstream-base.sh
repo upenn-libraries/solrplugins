@@ -31,6 +31,7 @@ org/apache/solr/handler/component/ExpandComponent.java
 org/apache/solr/request/SimpleFacets.java
 org/apache/solr/request/DocValuesFacets.java
 org/apache/solr/search/ExtendedDismaxQParser.java
+org/apache/solr/search/ExtendedDismaxQParserPlugin.java
 org/apache/solr/schema/PreAnalyzedField.java
 org/apache/solr/schema/JsonPreAnalyzedParser.java
 org/apache/solr/schema/SimplePreAnalyzedParser.java
