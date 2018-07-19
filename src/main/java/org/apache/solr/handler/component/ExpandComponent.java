@@ -24,6 +24,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import com.carrotsearch.hppc.IntHashSet;
+import com.carrotsearch.hppc.IntObjectHashMap;
+import com.carrotsearch.hppc.LongHashSet;
+import com.carrotsearch.hppc.LongObjectHashMap;
+import com.carrotsearch.hppc.LongObjectMap;
+import com.carrotsearch.hppc.cursors.IntObjectCursor;
+import com.carrotsearch.hppc.cursors.LongCursor;
+import com.carrotsearch.hppc.cursors.LongObjectCursor;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
@@ -72,23 +81,11 @@ import org.apache.solr.search.DocIterator;
 import org.apache.solr.search.DocList;
 import org.apache.solr.search.DocSlice;
 import org.apache.solr.search.QParser;
-import org.apache.solr.search.QueryWrapperFilter;
-import org.apache.solr.search.SolrConstantScoreQuery;
 import org.apache.solr.search.SolrIndexSearcher;
 import org.apache.solr.search.SortSpecParsing;
 import org.apache.solr.uninverting.UninvertingReader;
 import org.apache.solr.util.plugin.PluginInfoInitialized;
 import org.apache.solr.util.plugin.SolrCoreAware;
-
-import com.carrotsearch.hppc.IntHashSet;
-import com.carrotsearch.hppc.IntObjectHashMap;
-import com.carrotsearch.hppc.LongHashSet;
-import com.carrotsearch.hppc.LongObjectHashMap;
-import com.carrotsearch.hppc.LongObjectMap;
-import com.carrotsearch.hppc.cursors.IntObjectCursor;
-import com.carrotsearch.hppc.cursors.LongCursor;
-import com.carrotsearch.hppc.cursors.LongObjectCursor;
-import com.carrotsearch.hppc.cursors.ObjectCursor;
 
 /**
  * The ExpandComponent is designed to work with the CollapsingPostFilter.
@@ -550,11 +547,6 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
       }
     }
 
-    @Override
-    public boolean needsScores() {
-      return true; // TODO: is this always true?
-    }
-
     public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
       final int docBase = context.docBase;
 
@@ -590,10 +582,7 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
               ord = -1;
             }
           } else {
-            if (globalDoc > docValues.docID()) {
-              docValues.advance(globalDoc);
-            }
-            if (globalDoc == docValues.docID()) {
+            if (docValues.advanceExact(globalDoc)) {
               ord = docValues.ordValue();
             } else {
               ord = -1;
@@ -636,11 +625,6 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
       this.field = field;
       this.collapsedSet = collapsedSet;
     }
-    
-    @Override
-    public boolean needsScores() {
-      return true; // TODO: is this always true?
-    }
 
     public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
       final int docBase = context.docBase;
@@ -663,12 +647,8 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
 
         @Override
         public void collect(int docId) throws IOException {
-          int valuesDocID = docValues.docID();
-          if (valuesDocID < docId) {
-            valuesDocID = docValues.advance(docId);
-          }
           long value;
-          if (valuesDocID == docId) {
+          if (docValues.advanceExact(docId)) {
             value = docValues.longValue();
           } else {
             value = 0;
@@ -689,8 +669,19 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
 
   }
 
-  private interface GroupCollector {
+  //TODO lets just do simple abstract base class -- a fine use of inheritance
+  private interface GroupCollector extends Collector {
     public LongObjectMap<Collector> getGroups();
+
+    @Override
+    default boolean needsScores() {
+      final LongObjectMap<Collector> groups = getGroups();
+      if (groups.isEmpty()) {
+        return true; // doesn't matter?
+      } else {
+        return groups.iterator().next().value.needsScores(); // we assume all the collectors should have the same nature
+      }
+    }
   }
 
   private Query getGroupQuery(String fname,
@@ -710,7 +701,7 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
       bytesRefs[++index] = term.toBytesRef();
     }
 
-    return new SolrConstantScoreQuery(new QueryWrapperFilter(new TermInSetQuery(fname, bytesRefs)));
+    return new TermInSetQuery(fname, bytesRefs);
   }
 
   private Query getPointGroupQuery(SchemaField sf,
@@ -725,7 +716,7 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
       values.add(numericToString(ft, cursor.value));
     }
 
-    return new SolrConstantScoreQuery(new QueryWrapperFilter(sf.getType().getSetQuery(null, sf, values)));
+    return sf.getType().getSetQuery(null, sf, values);
   }
 
   private String numericToString(FieldType fieldType, long val) {
@@ -738,6 +729,8 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
           return Float.toString(Float.intBitsToFloat((int)val));
         case DOUBLE:
           return Double.toString(Double.longBitsToDouble(val));
+        case DATE:
+          break;
       }
     }
     throw new IllegalArgumentException("FieldType must be INT,LONG,FLOAT,DOUBLE found " + fieldType);
@@ -753,7 +746,7 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
       IntObjectCursor<BytesRef> cursor = it.next();
       bytesRefs[++index] = cursor.value;
     }
-    return new SolrConstantScoreQuery(new QueryWrapperFilter(new TermInSetQuery(fname, bytesRefs)));
+    return new TermInSetQuery(fname, bytesRefs);
   }
 
 
@@ -803,7 +796,8 @@ public class ExpandComponent extends SearchComponent implements PluginInfoInitia
               fieldInfo.getDocValuesGen(),
               fieldInfo.attributes(),
               fieldInfo.getPointDimensionCount(),
-              fieldInfo.getPointNumBytes());
+              fieldInfo.getPointNumBytes(),
+              fieldInfo.isSoftDeletesField());
           newInfos.add(f);
 
         } else {
